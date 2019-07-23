@@ -628,7 +628,7 @@ static void update_history(struct cpuidle_device *dev, int idx);
 static inline bool is_cpu_biased(int cpu, uint64_t *bias_time)
 {
 	u64 now = sched_clock();
-	u64 last = sched_get_cpu_last_busy_time(cpu);
+	u64 sched_lpm_disallowed_time(int cpu);
 	u64 diff = 0;
 	int hyst_bias = pm_qos_request(PM_QOS_HIST_BIAS);
 
