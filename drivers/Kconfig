@@ -260,4 +260,7 @@ source "drivers/security/samsung/tzic/Kconfig"
 source "drivers/spu_verify/Kconfig"
 
 source "drivers/kperfmon/Kconfig"
+
+source "techpack/data/drivers/Kconfig"
+
 endmenu
