@@ -141,6 +141,7 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
+__read_mostly unsigned int new_sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
 /*
  * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
@@ -3236,6 +3237,13 @@ u64 get_rtgb_active_time(void)
 	return 0;
 }
 
+static void walt_init_window_dep(void);
+static void walt_tunables_fixup(void)
+{
+	walt_update_group_thresholds();
+	walt_init_window_dep();
+}
+
 /*
  * Runs in hard-irq context. This should ideally run just after the latest
  * window roll-over.
@@ -3338,6 +3346,20 @@ void walt_irq_work(struct irq_work *irq_work)
 				cpufreq_update_util(cpu_rq(cpu), flag |
 							SCHED_CPUFREQ_CONTINUE);
 			i++;
+		}
+	}
+
+	/*
+	 * If the window change request is in pending, good place to
+	 * change sched_ravg_window since all rq locks are acquired.
+	 */
+	if (!is_migration) {
+		if (sched_ravg_window != new_sched_ravg_window) {
+			printk_deferred("ALERT: changing window size from %u to %u\n",
+					sched_ravg_window,
+					new_sched_ravg_window);
+			sched_ravg_window = new_sched_ravg_window;
+			walt_tunables_fixup();
 		}
 	}
 
@@ -3453,12 +3475,8 @@ int walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-static void walt_init_once(void)
+static void walt_init_window_dep(void)
 {
-	init_irq_work(&walt_migration_irq_work, walt_irq_work);
-	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
-	walt_rotate_work_init();
-
 	walt_cpu_util_freq_divisor =
 	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
 	walt_scale_demand_divisor = sched_ravg_window >> SCHED_CAPACITY_SHIFT;
@@ -3468,6 +3486,14 @@ static void walt_init_once(void)
 			  (u64)sched_ravg_window, 100);
 	sched_init_task_load_windows_scaled =
 		scale_demand(sched_init_task_load_windows);
+}
+
+static void walt_init_once(void)
+{
+	init_irq_work(&walt_migration_irq_work, walt_irq_work);
+	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
+	walt_rotate_work_init();
+	walt_init_window_dep();
 }
 
 void walt_sched_init_rq(struct rq *rq)
