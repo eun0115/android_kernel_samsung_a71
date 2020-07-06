@@ -1406,7 +1406,6 @@ config PRINTK_NMI
 
 config BUG
 	bool "BUG() support" if EXPERT
-	default y
 	help
           Disabling this option eliminates support for BUG and WARN, reducing
           the size of your kernel image and potentially quietly ignoring
