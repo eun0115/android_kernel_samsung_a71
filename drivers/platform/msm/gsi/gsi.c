@@ -22,7 +22,12 @@
 #include "gsi_reg.h"
 #include "gsi_emulation.h"
 
-#define GSI_CMD_TIMEOUT (1*HZ)
+#ifndef MODULE
+ #undef EXPORT_SYMBOL
+ #define EXPORT_SYMBOL(x)
+#endif
+
+#define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_START_CMD_TIMEOUT_MS 1000
 #define GSI_CMD_POLL_CNT 5
 #define GSI_STOP_CMD_TIMEOUT_MS 200
