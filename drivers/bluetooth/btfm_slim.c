@@ -50,7 +50,7 @@ int btfm_slim_write(struct btfmslim *btfmslim,
 	}
 
 	if (ret) {
-		BTFMSLIM_ERR("failed (%d)", ret);
+		BTFMSLIM_DBG("failed (%d)", ret);
 		return ret;
 	}
 
@@ -95,7 +95,7 @@ int btfm_slim_read(struct btfmslim *btfmslim, unsigned short reg,
 	}
 
 	if (ret)
-		BTFMSLIM_ERR("failed (%d)", ret);
+		BTFMSLIM_DBG("failed (%d)", ret);
 
 	for (i = 0; i < bytes; i++)
 		BTFMSLIM_DBG("Read 0x%02x from reg 0x%x", ((uint8_t *)dest)[i],
@@ -153,15 +153,15 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	ch_h[0] = ch->ch_hdl;
 	ch_h[1] = (grp) ? (ch+1)->ch_hdl : 0;
 
-	BTFMSLIM_INFO("channel define - prot:%d, dataf:%d, auxf:%d",
+	BTFMSLIM_DBG("channel define - prot:%d, dataf:%d, auxf:%d",
 			prop.prot, prop.dataf, prop.auxf);
-	BTFMSLIM_INFO("channel define - rates:%d, baser:%d, ratem:%d",
+	BTFMSLIM_DBG("channel define - rates:%d, baser:%d, ratem:%d",
 			rates, prop.baser, prop.ratem);
 
 	ret = slim_define_ch(btfmslim->slim_pgd, &prop, ch_h, nchan, grp,
 			&ch->grph);
 	if (ret < 0) {
-		BTFMSLIM_ERR("slim_define_ch failed ret[%d]", ret);
+		BTFMSLIM_DBG("slim_define_ch failed ret[%d]", ret);
 		goto error;
 	}
 
@@ -171,32 +171,32 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 			ret = btfmslim->vendor_port_en(btfmslim, ch->port,
 					rxport, 1);
 			if (ret < 0) {
-				BTFMSLIM_ERR("vendor_port_en failed ret[%d]",
+				BTFMSLIM_DBG("vendor_port_en failed ret[%d]",
 					ret);
 				goto error;
 			}
 		}
 
 		if (rxport) {
-			BTFMSLIM_INFO("slim_connect_sink(port: %d, ch: %d)",
+			BTFMSLIM_DBG("slim_connect_sink(port: %d, ch: %d)",
 				ch->port, ch->ch);
 			/* Connect Port with channel given by Machine driver*/
 			ret = slim_connect_sink(btfmslim->slim_pgd,
 				&ch->port_hdl, 1, ch->ch_hdl);
 			if (ret < 0) {
-				BTFMSLIM_ERR("slim_connect_sink failed ret[%d]",
+				BTFMSLIM_DBG("slim_connect_sink failed ret[%d]",
 					ret);
 				goto remove_channel;
 			}
 
 		} else {
-			BTFMSLIM_INFO("slim_connect_src(port: %d, ch: %d)",
+			BTFMSLIM_DBG("slim_connect_src(port: %d, ch: %d)",
 				ch->port, ch->ch);
 			/* Connect Port with channel given by Machine driver*/
 			ret = slim_connect_src(btfmslim->slim_pgd, ch->port_hdl,
 				ch->ch_hdl);
 			if (ret < 0) {
-				BTFMSLIM_ERR("slim_connect_src failed ret[%d]",
+				BTFMSLIM_DBG("slim_connect_src failed ret[%d]",
 					ret);
 				goto remove_channel;
 			}
@@ -204,13 +204,13 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	}
 
 	/* Activate the channel immediately */
-	BTFMSLIM_INFO(
+	BTFMSLIM_DBG(
 		"port: %d, ch: %d, grp: %d, ch->grph: 0x%x, ch_hdl: 0x%x",
 		chan->port, chan->ch, grp, chan->grph, chan->ch_hdl);
 	ret = slim_control_ch(btfmslim->slim_pgd, (grp ? chan->grph :
 		chan->ch_hdl), SLIM_CH_ACTIVATE, true);
 	if (ret < 0) {
-		BTFMSLIM_ERR("slim_control_ch failed ret[%d]", ret);
+		BTFMSLIM_DBG("slim_control_ch failed ret[%d]", ret);
 		goto remove_channel;
 	}
 
@@ -222,7 +222,7 @@ remove_channel:
 	ret = slim_control_ch(btfmslim->slim_pgd, (grp ? ch->grph : ch->ch_hdl),
 			SLIM_CH_REMOVE, true);
 	if (ret < 0)
-		BTFMSLIM_ERR("slim_control_ch failed ret[%d]", ret);
+		BTFMSLIM_DBG("slim_control_ch failed ret[%d]", ret);
 
 	return ret;
 }
@@ -235,7 +235,7 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	if (!btfmslim || !ch)
 		return -EINVAL;
 
-	BTFMSLIM_INFO("port:%d, grp: %d, ch->grph:0x%x, ch->ch_hdl:0x%x ",
+	BTFMSLIM_DBG("port:%d, grp: %d, ch->grph:0x%x, ch->ch_hdl:0x%x ",
 		ch->port, grp, ch->grph, ch->ch_hdl);
 
 	/* For 44.1/88.2 Khz A2DP Rx, disconnect the port first */
@@ -246,7 +246,7 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		ret = slim_disconnect_ports(btfmslim->slim_pgd,
 				&ch->port_hdl, 1);
 		if (ret < 0) {
-			BTFMSLIM_ERR("slim_disconnect_ports failed ret[%d]",
+			BTFMSLIM_DBG("slim_disconnect_ports failed ret[%d]",
 				ret);
 		}
 	}
@@ -255,13 +255,13 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	ret = slim_control_ch(btfmslim->slim_pgd, (grp ? ch->grph : ch->ch_hdl),
 			SLIM_CH_REMOVE, true);
 	if (ret < 0) {
-		BTFMSLIM_ERR("slim_control_ch failed ret[%d]", ret);
+		BTFMSLIM_DBG("slim_control_ch failed ret[%d]", ret);
 		if (btfmslim->sample_rate != 44100 &&
 			btfmslim->sample_rate != 88200) {
 			ret = slim_disconnect_ports(btfmslim->slim_pgd,
 				&ch->port_hdl, 1);
 			if (ret < 0) {
-				BTFMSLIM_ERR("disconnect_ports failed ret[%d]",
+				BTFMSLIM_DBG("disconnect_ports failed ret[%d]",
 					 ret);
 				goto error;
 			}
@@ -274,7 +274,7 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 			ret = btfmslim->vendor_port_en(btfmslim, ch->port,
 				rxport, 0);
 			if (ret < 0) {
-				BTFMSLIM_ERR("vendor_port_en failed ret[%d]",
+				BTFMSLIM_DBG("vendor_port_en failed ret[%d]",
 					ret);
 				break;
 			}
@@ -315,7 +315,7 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 		return ret;
 
 	chipset_ver = get_chipset_version();
-	BTFMSLIM_INFO("chipset soc version:%x", chipset_ver);
+	BTFMSLIM_DBG("chipset soc version:%x", chipset_ver);
 
 	rx_chs = btfmslim->rx_chs;
 	tx_chs = btfmslim->tx_chs;
@@ -327,7 +327,7 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 				tx_chs->port = CHRKVER3_SB_PGD_PORT_TX1_FM;
 			else if (tx_chs->port == CHRK_SB_PGD_PORT_TX2_FM)
 				tx_chs->port = CHRKVER3_SB_PGD_PORT_TX2_FM;
-			BTFMSLIM_INFO("Tx port:%d", tx_chs->port);
+			BTFMSLIM_DBG("Tx port:%d", tx_chs->port);
 		}
 		tx_chs = btfmslim->tx_chs;
 	}
@@ -344,7 +344,7 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 		ret = slim_get_slaveport(btfmslim->slim_pgd->laddr,
 			rx_chs->port, &rx_chs->port_hdl, SLIM_SINK);
 		if (ret < 0) {
-			BTFMSLIM_ERR("slave port failure port#%d - ret[%d]",
+			BTFMSLIM_DBG("slave port failure port#%d - ret[%d]",
 				rx_chs->port, SLIM_SINK);
 			return ret;
 		}
@@ -363,7 +363,7 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 		ret = slim_get_slaveport(btfmslim->slim_pgd->laddr,
 			tx_chs->port, &tx_chs->port_hdl, SLIM_SRC);
 		if (ret < 0) {
-			BTFMSLIM_ERR("slave port failure port#%d - ret[%d]",
+			BTFMSLIM_DBG("slave port failure port#%d - ret[%d]",
 				tx_chs->port, SLIM_SRC);
 			return ret;
 		}
@@ -393,7 +393,7 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 	 */
 	ret = btfm_slim_get_logical_addr(btfmslim->slim_pgd);
 	if (ret) {
-		BTFMSLIM_ERR("failed to get slimbus %s logical address: %d",
+		BTFMSLIM_DBG("failed to get slimbus %s logical address: %d",
 		       btfmslim->slim_pgd->name, ret);
 		goto error;
 	}
@@ -403,7 +403,7 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 	 */
 	ret = btfm_slim_get_logical_addr(&btfmslim->slim_ifd);
 	if (ret) {
-		BTFMSLIM_ERR("failed to get slimbus %s logical address: %d",
+		BTFMSLIM_DBG("failed to get slimbus %s logical address: %d",
 		       btfmslim->slim_ifd.name, ret);
 		goto error;
 	}
@@ -462,7 +462,7 @@ static int btfm_slim_get_dt_info(struct btfmslim *btfmslim)
 		ret = of_property_read_string(slim->dev.of_node,
 			"qcom,btfm-slim-ifd", &slim_ifd->name);
 		if (ret) {
-			BTFMSLIM_ERR("Looking up %s property in node %s failed",
+			BTFMSLIM_DBG("Looking up %s property in node %s failed",
 				"qcom,btfm-slim-ifd",
 				 slim->dev.of_node->full_name);
 			return -ENODEV;
@@ -472,12 +472,12 @@ static int btfm_slim_get_dt_info(struct btfmslim *btfmslim)
 		prop = of_find_property(slim->dev.of_node,
 				"qcom,btfm-slim-ifd-elemental-addr", NULL);
 		if (!prop) {
-			BTFMSLIM_ERR("Looking up %s property in node %s failed",
+			BTFMSLIM_DBG("Looking up %s property in node %s failed",
 				"qcom,btfm-slim-ifd-elemental-addr",
 				slim->dev.of_node->full_name);
 			return -ENODEV;
 		} else if (prop->length != 6) {
-			BTFMSLIM_ERR(
+			BTFMSLIM_DBG(
 				"invalid codec slim ifd addr. addr length= %d",
 				prop->length);
 			return -ENODEV;
@@ -493,7 +493,7 @@ static int btfm_slim_get_dt_info(struct btfmslim *btfmslim)
 			slim_ifd->e_addr[2], slim_ifd->e_addr[3],
 			slim_ifd->e_addr[4], slim_ifd->e_addr[5]);
 	} else {
-		BTFMSLIM_ERR("Platform data is not valid");
+		BTFMSLIM_DBG("Platform data is not valid");
 	}
 
 	return ret;
@@ -511,7 +511,7 @@ static int btfm_slim_probe(struct slim_device *slim)
 	/* Allocation btfmslim data pointer */
 	btfm_slim = kzalloc(sizeof(struct btfmslim), GFP_KERNEL);
 	if (btfm_slim == NULL) {
-		BTFMSLIM_ERR("error, allocation failed");
+		BTFMSLIM_DBG("error, allocation failed");
 		return -ENOMEM;
 	}
 	/* BTFM Slimbus driver control data configuration */
@@ -535,7 +535,7 @@ static int btfm_slim_probe(struct slim_device *slim)
 	/* Add Interface Device for slimbus driver */
 	ret = slim_add_device(btfm_slim->slim_pgd->ctrl, &btfm_slim->slim_ifd);
 	if (ret) {
-		BTFMSLIM_ERR("error, adding SLIMBUS device failed");
+		BTFMSLIM_DBG("error, adding SLIMBUS device failed");
 		goto dealloc;
 	}
 
@@ -546,7 +546,7 @@ static int btfm_slim_probe(struct slim_device *slim)
 	btfm_slim->dev = &slim->dev;
 	ret = btfm_slim_register_codec(&slim->dev);
 	if (ret) {
-		BTFMSLIM_ERR("error, registering slimbus codec failed");
+		BTFMSLIM_DBG("error, registering slimbus codec failed");
 		goto free;
 	}
 	ret = bt_register_slimdev(&slim->dev);
@@ -604,7 +604,7 @@ static int __init btfm_slim_init(void)
 	BTFMSLIM_DBG("");
 	ret = slim_driver_register(&btfm_slim_driver);
 	if (ret)
-		BTFMSLIM_ERR("Failed to register slimbus driver: %d", ret);
+		BTFMSLIM_DBG("Failed to register slimbus driver: %d", ret);
 	return ret;
 }
 
