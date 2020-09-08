@@ -52,7 +52,7 @@ int btfm_slim_chrk_hw_init(struct btfmslim *btfmslim)
 	reg = CHRK_SB_SLAVE_HW_REV_MSB;
 	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
 	if (ret) {
-		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
+		BTFMSLIM_DBG("failed to read (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
 	BTFMSLIM_DBG("Major Rev: 0x%x, Minor Rev: 0x%x",
@@ -62,7 +62,7 @@ int btfm_slim_chrk_hw_init(struct btfmslim *btfmslim)
 	reg = CHRK_SB_SLAVE_HW_REV_LSB;
 	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
 	if (ret) {
-		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
+		BTFMSLIM_DBG("failed to read (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
 	BTFMSLIM_DBG("Step Rev: 0x%x", reg_val);
@@ -73,7 +73,7 @@ error:
 
 static inline int is_fm_port(struct btfmslim *btfmslim)
 {
-	BTFMSLIM_INFO("dai id is %d", btfmslim->dai_id);
+	BTFMSLIM_DBG("dai id is %d", btfmslim->dai_id);
 	if (btfmslim->dai_id == BTFM_FM_SLIM_TX)
 		return 1;
 	else
@@ -112,7 +112,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 				ret = btfm_slim_read(btfmslim, reg,  1,
 							&prev_reg_val, IFD);
 				if (ret < 0) {
-					BTFMSLIM_ERR("error %d reading", ret);
+					BTFMSLIM_DBG("error %d reading", ret);
 					prev_reg_val = 0;
 				}
 				BTFMSLIM_DBG("prev_reg_val (%d) from reg(%x)",
@@ -125,7 +125,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 				reg_val, reg);
 			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 			if (ret) {
-				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+				BTFMSLIM_DBG("failed to write (%d) reg 0x%x",
 					ret, reg);
 				goto error;
 			}
@@ -149,10 +149,10 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 					(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
 
 		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
-		BTFMSLIM_INFO("writing reg_val (%d) to reg(%x)", reg_val, reg);
+		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)", reg_val, reg);
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
-			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+			BTFMSLIM_DBG("failed to write (%d) reg 0x%x", ret, reg);
 			goto error;
 		}
 	} else if (port_num == CHRK_SB_PGD_PORT_TX_SCO) {
@@ -163,7 +163,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 				reg_val, reg);
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
-			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+			BTFMSLIM_DBG("failed to write (%d) reg 0x%x",
 					ret, reg);
 			goto error;
 		}
@@ -175,7 +175,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 				reg_val, reg);
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
-			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+			BTFMSLIM_DBG("failed to write (%d) reg 0x%x",
 					ret, reg);
 			goto error;
 		}
@@ -187,7 +187,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	reg = CHRK_SB_PGD_PORT_TX_OR_UR_CFGN(port_num);
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret) {
-		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+		BTFMSLIM_DBG("failed to write (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
 
@@ -209,15 +209,15 @@ enable_disable_rxport:
 		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
 
 	if (enable && port_num == CHRK_SB_PGD_PORT_TX_SCO)
-		BTFMSLIM_INFO("programming SCO Tx with reg_val %d to reg 0x%x",
+		BTFMSLIM_DBG("programming SCO Tx with reg_val %d to reg 0x%x",
 				reg_val, reg);
 	else if (enable && port_num == CHRK_SB_PGD_PORT_TX_A2DP)
-		BTFMSLIM_INFO("programming A2DP Tx with reg_val %d to reg 0x%x",
+		BTFMSLIM_DBG("programming A2DP Tx with reg_val %d to reg 0x%x",
 				reg_val, reg);
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret)
-		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+		BTFMSLIM_DBG("failed to write (%d) reg 0x%x", ret, reg);
 
 error:
 	return ret;

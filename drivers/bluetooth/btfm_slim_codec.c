@@ -135,7 +135,7 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 		break;
 	case BTFM_SLIM_NUM_CODEC_DAIS:
 	default:
-		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
+		BTFMSLIM_DBG("dai->id is invalid:%d", dai->id);
 		return;
 	}
 
@@ -147,7 +147,7 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 
 	if ((ch->port == BTFM_SLIM_PGD_PORT_LAST) ||
 		(ch->id == BTFM_SLIM_NUM_CODEC_DAIS)) {
-		BTFMSLIM_ERR("ch is invalid!!");
+		BTFMSLIM_DBG("ch is invalid!!");
 		return;
 	}
 
@@ -206,7 +206,7 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 		break;
 	case BTFM_SLIM_NUM_CODEC_DAIS:
 	default:
-		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
+		BTFMSLIM_DBG("dai->id is invalid:%d", dai->id);
 		return ret;
 	}
 
@@ -218,7 +218,7 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 
 	if ((ch->port == BTFM_SLIM_PGD_PORT_LAST) ||
 		(ch->id == BTFM_SLIM_NUM_CODEC_DAIS)) {
-		BTFMSLIM_ERR("ch is invalid!!");
+		BTFMSLIM_DBG("ch is invalid!!");
 		return ret;
 	}
 
@@ -261,7 +261,7 @@ static int btfm_slim_dai_set_channel_map(struct snd_soc_dai *dai,
 		ret = slim_query_ch(btfmslim->slim_pgd, rx_chs->ch,
 			&rx_chs->ch_hdl);
 		if (ret < 0) {
-			BTFMSLIM_ERR("slim_query_ch failure ch#%d - ret[%d]",
+			BTFMSLIM_DBG("slim_query_ch failure ch#%d - ret[%d]",
 				rx_chs->ch, ret);
 			goto error;
 		}
@@ -280,7 +280,7 @@ static int btfm_slim_dai_set_channel_map(struct snd_soc_dai *dai,
 		ret = slim_query_ch(btfmslim->slim_pgd, tx_chs->ch,
 			&tx_chs->ch_hdl);
 		if (ret < 0) {
-			BTFMSLIM_ERR("slim_query_ch failure ch#%d - ret[%d]",
+			BTFMSLIM_DBG("slim_query_ch failure ch#%d - ret[%d]",
 				tx_chs->ch, ret);
 			goto error;
 		}
@@ -309,7 +309,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 		num = 2;
 	case BTFM_BT_SCO_SLIM_TX:
 		if (!tx_slot || !tx_num) {
-			BTFMSLIM_ERR("Invalid tx_slot %p or tx_num %p",
+			BTFMSLIM_DBG("Invalid tx_slot %p or tx_num %p",
 				tx_slot, tx_num);
 			return -EINVAL;
 		}
@@ -323,7 +323,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 		break;
 	case BTFM_BT_SPLIT_A2DP_SLIM_TX:
 		if (!tx_slot || !tx_num) {
-			BTFMSLIM_ERR("Invalid tx_slot %p or tx_num %p",
+			BTFMSLIM_DBG("Invalid tx_slot %p or tx_num %p",
 				tx_slot, tx_num);
 			return -EINVAL;
 		}
@@ -338,7 +338,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 	case BTFM_BT_SCO_A2DP_SLIM_RX:
 	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
 		if (!rx_slot || !rx_num) {
-			BTFMSLIM_ERR("Invalid rx_slot %p or rx_num %p",
+			BTFMSLIM_DBG("Invalid rx_slot %p or rx_num %p",
 				 rx_slot, rx_num);
 			return -EINVAL;
 		}
@@ -351,7 +351,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 		*rx_num = num;
 		break;
 	default:
-		BTFMSLIM_ERR("Unsupported DAI %d", dai->id);
+		BTFMSLIM_DBG("Unsupported DAI %d", dai->id);
 		return -EINVAL;
 	}
 
@@ -365,7 +365,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 
 		if (ch->id == BTFM_SLIM_NUM_CODEC_DAIS ||
 			i == BTFM_SLIM_NUM_CODEC_DAIS) {
-			BTFMSLIM_ERR(
+			BTFMSLIM_DBG(
 				"No channel has been allocated for dai (%d)",
 				dai->id);
 			return -EINVAL;
@@ -491,7 +491,7 @@ int btfm_slim_register_codec(struct device *dev)
 		btfmslim_dai, ARRAY_SIZE(btfmslim_dai));
 
 	if (ret)
-		BTFMSLIM_ERR("failed to register codec (%d)", ret);
+		BTFMSLIM_DBG("failed to register codec (%d)", ret);
 
 	return ret;
 }
