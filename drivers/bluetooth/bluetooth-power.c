@@ -90,7 +90,7 @@ static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 	vreg->reg = regulator_get(dev, vreg->name);
 	if (IS_ERR(vreg->reg)) {
 		rc = PTR_ERR(vreg->reg);
-		pr_err("%s: regulator_get(%s) failed. rc=%d\n",
+		pr_debug("%s: regulator_get(%s) failed. rc=%d\n",
 			__func__, vreg->name, rc);
 		vreg->reg = NULL;
 		goto out;
@@ -116,7 +116,7 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 						vreg->low_vol_level,
 						vreg->high_vol_level);
 			if (rc < 0) {
-				BT_PWR_ERR("vreg_set_vol(%s) failed rc=%d\n",
+				BT_PWR_DBG("vreg_set_vol(%s) failed rc=%d\n",
 						vreg->name, rc);
 				goto out;
 			}
@@ -126,7 +126,7 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 			rc = regulator_set_load(vreg->reg,
 					vreg->load_uA);
 			if (rc < 0) {
-				BT_PWR_ERR("vreg_set_mode(%s) failed rc=%d\n",
+				BT_PWR_DBG("vreg_set_mode(%s) failed rc=%d\n",
 						vreg->name, rc);
 				goto out;
 			}
@@ -134,7 +134,7 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 
 		rc = regulator_enable(vreg->reg);
 		if (rc < 0) {
-			BT_PWR_ERR("regulator_enable(%s) failed. rc=%d\n",
+			BT_PWR_DBG("regulator_enable(%s) failed. rc=%d\n",
 					vreg->name, rc);
 			goto out;
 		}
@@ -156,7 +156,7 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 	if (vreg->is_enabled) {
 		rc = regulator_disable(vreg->reg);
 		if (rc < 0) {
-			BT_PWR_ERR("regulator_disable(%s) failed. rc=%d\n",
+			BT_PWR_DBG("regulator_disable(%s) failed. rc=%d\n",
 					vreg->name, rc);
 			goto out;
 		}
@@ -167,7 +167,7 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 			rc = regulator_set_voltage(vreg->reg, 0,
 					vreg->high_vol_level);
 			if (rc < 0) {
-				BT_PWR_ERR("vreg_set_vol(%s) failed rc=%d\n",
+				BT_PWR_DBG("vreg_set_vol(%s) failed rc=%d\n",
 						vreg->name, rc);
 				goto out;
 			}
@@ -175,7 +175,7 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 		if (vreg->load_uA >= 0) {
 			rc = regulator_set_load(vreg->reg, 0);
 			if (rc < 0) {
-				BT_PWR_ERR("vreg_set_mode(%s) failed rc=%d\n",
+				BT_PWR_DBG("vreg_set_mode(%s) failed rc=%d\n",
 						vreg->name, rc);
 			}
 		}
@@ -209,14 +209,14 @@ static int bt_clk_enable(struct bt_power_clk_data *clk)
 
 	/* Get the clock handle for vreg */
 	if (!clk->clk || clk->is_enabled) {
-		BT_PWR_ERR("error - node: %p, clk->is_enabled:%d",
+		BT_PWR_DBG("error - node: %p, clk->is_enabled:%d",
 			clk->clk, clk->is_enabled);
 		return -EINVAL;
 	}
 
 	rc = clk_prepare_enable(clk->clk);
 	if (rc) {
-		BT_PWR_ERR("failed to enable %s, rc(%d)\n", clk->name, rc);
+		BT_PWR_DBG("failed to enable %s, rc(%d)\n", clk->name, rc);
 		return rc;
 	}
 
@@ -232,7 +232,7 @@ static int bt_clk_disable(struct bt_power_clk_data *clk)
 
 	/* Get the clock handle for vreg */
 	if (!clk->clk || !clk->is_enabled) {
-		BT_PWR_ERR("error - node: %p, clk->is_enabled:%d",
+		BT_PWR_DBG("error - node: %p, clk->is_enabled:%d",
 			clk->clk, clk->is_enabled);
 		return -EINVAL;
 	}
@@ -310,20 +310,20 @@ static int bt_configure_gpios(int on)
 	if (on) {
 		rc = gpio_request(bt_reset_gpio, "bt_sys_rst_n");
 		if (rc) {
-			BT_PWR_ERR("unable to request gpio %d (%d)\n",
+			BT_PWR_DBG("unable to request gpio %d (%d)\n",
 					bt_reset_gpio, rc);
 			return rc;
 		}
 
 		rc = gpio_direction_output(bt_reset_gpio, 0);
 		if (rc) {
-			BT_PWR_ERR("Unable to set direction\n");
+			BT_PWR_DBG("Unable to set direction\n");
 			return rc;
 		}
 		msleep(50);
 		rc = gpio_direction_output(bt_reset_gpio, 1);
 		if (rc) {
-			BT_PWR_ERR("Unable to set direction\n");
+			BT_PWR_DBG("Unable to set direction\n");
 			return rc;
 		}
 		msleep(50);
@@ -343,7 +343,7 @@ static int bluetooth_power(int on)
 	if (on) {
 		rc = bt_power_vreg_set(true);
 		if (rc < 0) {
-			BT_PWR_ERR("bt_power regulators config failed");
+			BT_PWR_DBG("bt_power regulators config failed");
 			goto regulator_fail;
 		}
 		/* Parse dt_info and check if a target requires clock voting.
@@ -352,14 +352,14 @@ static int bluetooth_power(int on)
 		if (bt_power_pdata->bt_chip_clk) {
 			rc = bt_clk_enable(bt_power_pdata->bt_chip_clk);
 			if (rc < 0) {
-				BT_PWR_ERR("bt_power gpio config failed");
+				BT_PWR_DBG("bt_power gpio config failed");
 				goto clk_fail;
 			}
 		}
 		if (bt_power_pdata->bt_gpio_sys_rst > 0) {
 			rc = bt_configure_gpios(on);
 			if (rc < 0) {
-				BT_PWR_ERR("bt_power gpio config failed");
+				BT_PWR_DBG("bt_power gpio config failed");
 				goto gpio_fail;
 			}
 		}
@@ -422,7 +422,7 @@ static ssize_t enable_extldo(struct device *dev, struct device_attribute *attr,
 
 	ret = cnss_get_platform_cap(&cap);
 	if (ret) {
-		BT_PWR_ERR("Platform capability info from CNSS not available!");
+		BT_PWR_DBG("Platform capability info from CNSS not available!");
 		enable = false;
 	} else if (!ret && (cap.cap_flag & CNSS_HAS_EXTERNAL_SWREG)) {
 		enable = true;
@@ -456,7 +456,7 @@ static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
 	/* add file into rfkill0 to handle LDO27 */
 	ret = device_create_file(&pdev->dev, &dev_attr_extldo);
 	if (ret < 0)
-		BT_PWR_ERR("device create file error!");
+		BT_PWR_DBG("device create file error!");
 
 	/* force Bluetooth off during init to allow for user control */
 	rfkill_init_sw_state(rfkill, 1);
@@ -527,7 +527,7 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 			vreg->high_vol_level,
 			vreg->load_uA);
 	} else
-		BT_PWR_INFO("%s: is not provided in device tree", vreg_name);
+		BT_PWR_DBG("%s: is not provided in device tree", vreg_name);
 
 	return ret;
 }
@@ -545,7 +545,7 @@ static int bt_dt_parse_clk_info(struct device *dev,
 	if (of_parse_phandle(np, "clocks", 0)) {
 		clk = devm_kzalloc(dev, sizeof(*clk), GFP_KERNEL);
 		if (!clk) {
-			BT_PWR_ERR("No memory for clocks");
+			BT_PWR_DBG("No memory for clocks");
 			ret = -ENOMEM;
 			goto err;
 		}
@@ -557,14 +557,14 @@ static int bt_dt_parse_clk_info(struct device *dev,
 		ret = of_property_read_string_index(np, "clock-names", 0,
 				&(clk->name));
 		if (ret < 0) {
-			BT_PWR_ERR("reading \"clock-names\" failed");
+			BT_PWR_DBG("reading \"clock-names\" failed");
 			return ret;
 		}
 
 		clk->clk = devm_clk_get(dev, clk->name);
 		if (IS_ERR(clk->clk)) {
 			ret = PTR_ERR(clk->clk);
-			BT_PWR_ERR("failed to get %s, ret (%d)",
+			BT_PWR_DBG("failed to get %s, ret (%d)",
 				clk->name, ret);
 			clk->clk = NULL;
 			return ret;
@@ -572,7 +572,7 @@ static int bt_dt_parse_clk_info(struct device *dev,
 
 		*clk_data = clk;
 	} else {
-		BT_PWR_ERR("clocks is not provided in device tree");
+		BT_PWR_DBG("clocks is not provided in device tree");
 	}
 
 err:
@@ -655,7 +655,7 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			of_get_named_gpio(pdev->dev.of_node,
 						"qca,bt-reset-gpio", 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
-			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
+			BT_PWR_DBG("bt-reset-gpio not provided in device tree");
 
 		bt_power_pdata->bt_gpio_3p3_en =
 			of_get_named_gpio(pdev->dev.of_node,
@@ -672,7 +672,7 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
-			BT_PWR_ERR("clock not provided in device tree");
+			BT_PWR_DBG("clock not provided in device tree");
 	}
 
 	bt_power_pdata->bt_power_setup = bluetooth_power;
@@ -691,14 +691,14 @@ static int bt_power_probe(struct platform_device *pdev)
 			GFP_KERNEL);
 
 	if (!bt_power_pdata) {
-		BT_PWR_ERR("Failed to allocate memory");
+		BT_PWR_DBG("Failed to allocate memory");
 		return -ENOMEM;
 	}
 
 	if (pdev->dev.of_node) {
 		ret = bt_power_populate_dt_pinfo(pdev);
 		if (ret < 0) {
-			BT_PWR_ERR("Failed to populate device tree info");
+			BT_PWR_DBG("Failed to populate device tree info");
 			goto free_pdata;
 		}
 		pdev->dev.platform_data = bt_power_pdata;
@@ -714,7 +714,7 @@ static int bt_power_probe(struct platform_device *pdev)
 			sizeof(struct bluetooth_power_platform_data));
 		pwr_state = 0;
 	} else {
-		BT_PWR_ERR("Failed to get platform data");
+		BT_PWR_DBG("Failed to get platform data");
 		goto free_pdata;
 	}
 
@@ -746,7 +746,7 @@ int bt_register_slimdev(struct device *dev)
 {
 	BT_PWR_DBG("");
 	if (!bt_power_pdata || (dev == NULL)) {
-		BT_PWR_ERR("Failed to allocate memory");
+		BT_PWR_DBG("Failed to allocate memory");
 		return -EINVAL;
 	}
 	bt_power_pdata->slim_dev = dev;
@@ -768,7 +768,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #ifdef CONFIG_BTFM_SLIM
 	case BT_CMD_SLIM_TEST:
 		if (!bt_power_pdata->slim_dev) {
-			BT_PWR_ERR("slim_dev is null\n");
+			BT_PWR_DBG("slim_dev is null\n");
 			return -EINVAL;
 		}
 		ret = btfm_slim_hw_init(
@@ -778,24 +778,24 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #endif
 	case BT_CMD_PWR_CTRL:
 		pwr_cntrl = (int)arg;
-		BT_PWR_ERR("BT_CMD_PWR_CTRL pwr_cntrl:%d", pwr_cntrl);
+		BT_PWR_DBG("BT_CMD_PWR_CTRL pwr_cntrl:%d", pwr_cntrl);
 		if (pwr_state != pwr_cntrl) {
 			ret = bluetooth_power(pwr_cntrl);
 			if (!ret)
 				pwr_state = pwr_cntrl;
 		} else {
-			BT_PWR_ERR("BT chip state is already :%d no change d\n"
+			BT_PWR_DBG("BT chip state is already :%d no change d\n"
 				, pwr_state);
 			ret = 0;
 		}
 		break;
 	case BT_CMD_CHIPSET_VERS:
 		chipset_version = (int)arg;
-		BT_PWR_ERR("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
+		BT_PWR_DBG("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
 		if (chipset_version) {
 		soc_id = chipset_version;
 		} else {
-			BT_PWR_ERR("got invalid soc version");
+			BT_PWR_DBG("got invalid soc version");
 			soc_id = 0;
 		}
 		break;
@@ -829,20 +829,20 @@ static int __init bluetooth_power_init(void)
 
 	bt_major = register_chrdev(0, "bt", &bt_dev_fops);
 	if (bt_major < 0) {
-		BT_PWR_ERR("failed to allocate char dev\n");
+		BT_PWR_DBG("failed to allocate char dev\n");
 		goto chrdev_unreg;
 	}
 
 	bt_class = class_create(THIS_MODULE, "bt-dev");
 	if (IS_ERR(bt_class)) {
-		BT_PWR_ERR("coudn't create class");
+		BT_PWR_DBG("coudn't create class");
 		goto chrdev_unreg;
 	}
 
 
 	if (device_create(bt_class, NULL, MKDEV(bt_major, 0),
 		NULL, "btpower") == NULL) {
-		BT_PWR_ERR("failed to allocate char dev\n");
+		BT_PWR_DBG("failed to allocate char dev\n");
 		goto chrdev_unreg;
 	}
 	return 0;
