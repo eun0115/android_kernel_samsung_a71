@@ -353,6 +353,7 @@
 	qcom,cl-feedback-on;
 	qcom,qg-fast-chg-config;
 	qcom,cl-disable = <1>;
+	qcom,bass-enable;
 };
 
 &pm6150_charger {
