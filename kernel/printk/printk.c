@@ -887,6 +887,12 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 		}
 	}
 
+	if ((strstr(line, "vaultkeeper")) ||
+		(strncmp(line, "init: DM_DEV_STATUS", sizeof("init: DM_DEV_STATUS")))) {
+		kfree(buf);
+		return len;
+	}
+
 	printk_emit(facility, level, NULL, 0, "%s", line);
 	return ret;
 }
