@@ -1047,7 +1047,7 @@ void sec_ts_print_info(struct sec_ts_data *ts)
 	if (ts->touch_count == 0)
 		ts->print_info_cnt_release++;
 
-	input_info(true, &ts->client->dev,
+	input_dbg(true, &ts->client->dev,
 			"mode:%04X tc:%d noise:%x wet:%d wc:%x(%d) lp:(%x) fod:%d D%05X fn:%04X/%04X // v:%02X%02X cal:%02X(%02X) C%02XT%04X.%4s%s Cal_flag:%s fail_cnt:%d // id(%d,%d) tmp(%d)// #%d %d\n",
 			ts->print_info_currnet_mode, ts->touch_count,
 			ts->touch_noise_status, ts->wet_mode,
