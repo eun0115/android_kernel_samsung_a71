@@ -1546,7 +1546,7 @@ int ss_panel_data_read_no_gpara(struct samsung_display_driver_data *vdd,
 		ss_send_cmd(vdd, TX_LEVEL2_KEY_DISABLE);
 
 	if (type != RX_FLASH_GAMMA && type != RX_POC_READ)
-		LCD_INFO("[%d]%s, addr: 0x%x, off: %d, len: %d, buf: %s\n",
+		LCD_DEBUG("[%d]%s, addr: 0x%x, off: %d, len: %d, buf: %s\n",
 				type, ss_get_cmd_name(type),
 				set->cmds[0].msg.tx_buf[0], orig_offset, orig_rx_len,
 				show_buffer);
@@ -1575,7 +1575,7 @@ int ss_panel_data_read_gpara(struct samsung_display_driver_data *vdd,
 	/* samsung mipi rx cmd feature supports only one command */
 	set = ss_get_cmds(vdd, type);
 	if (!ss_is_read_cmd(type) || set->count != 1) {
-		LCD_ERR("invalid set(%d): %s, count (%d)\n",
+		LCD_DEBUG("invalid set(%d): %s, count (%d)\n",
 				type, ss_get_cmd_name(type), set->count);
 		return -EINVAL;
 	}
