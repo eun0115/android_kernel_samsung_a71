@@ -23,47 +23,8 @@ ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 include $(srctree)/techpack/audio/config/sm8150auto.conf
 export
 endif
-<<<<<<< HEAD
-ifeq ($(CONFIG_ARCH_ATOLL), y)
-ifeq ($(PROJECT_NAME),$(filter $(PROJECT_NAME),a52q))
-include $(srctree)/techpack/audio/4.0/config/sm7125_a52.conf
-else ifeq ($(PROJECT_NAME),$(filter $(PROJECT_NAME),m42q))
-include $(srctree)/techpack/audio/4.0/config/sm7125_m42.conf
-else ifeq ($(PROJECT_NAME),$(filter $(PROJECT_NAME),a72q))
-include $(srctree)/techpack/audio/4.0/config/sm7125_a72.conf
-else ifeq ($(PROJECT_NAME),$(filter $(PROJECT_NAME),gta4xlve gta4xlvewifi))
-include $(srctree)/techpack/audio/4.0/config/sm7125_gta4xlve.conf
-else
-include $(srctree)/techpack/audio/4.0/config/atollauto.conf
-endif
-export
-endif
-ifeq ($(CONFIG_ARCH_SM6150), y)
-ifeq ($(filter y,$(CONFIG_SEC_A70Q_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm6150_a70q.conf
-else ifeq ($(filter y,$(CONFIG_SEC_A70S_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm6150_a70s.conf
-else ifeq ($(filter y,$(CONFIG_SEC_A71_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm7150_a71.conf
-else ifeq ($(PROJECT_NAME),$(filter $(PROJECT_NAME),a90q r1q))
-include $(srctree)/techpack/audio/config/sm7150_a90q.conf
-else ifeq ($(filter y,$(CONFIG_SEC_A70SQ_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm7150_a70sq.conf
-else ifeq ($(filter y,$(CONFIG_SEC_M41_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm7150_m41.conf
-else ifeq ($(filter y,$(CONFIG_SEC_M51_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm7150_m51.conf
-else ifeq ($(filter y,$(CONFIG_SEC_A60Q_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm6150_a60q.conf
-else ifeq ($(filter y,$(CONFIG_SEC_M40_PROJECT)),y)
-include $(srctree)/techpack/audio/config/sm6150_m40.conf
-else
-include $(srctree)/techpack/audio/config/sm6150auto.conf
-endif
-=======
 ifeq ($(CONFIG_ARCH_SM6150), y)
 include $(srctree)/techpack/audio/config/sm6150auto.conf
->>>>>>> f931e0454d93 (techpack: audio: Allow to load sm6150 configuration)
 export
 endif
 
@@ -86,6 +47,7 @@ USERINCLUDE     += \
 # Needed to be compatible with the O= option
 LINUXINCLUDE    += \
                 -I$(srctree)/techpack/audio/include/uapi \
+                -I$(srctree)/techpack/audio/include/elliptic \
                 -I$(srctree)/techpack/audio/include
 endif
 
@@ -128,4 +90,7 @@ obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
 obj-y += asoc/
+<<<<<<< HEAD
 endif
+=======
+>>>>>>> d13d0188618b (techpack: audio: Fix elliptic inclusion)
