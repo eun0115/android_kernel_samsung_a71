@@ -5217,7 +5217,7 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 
 	/* Do nothing on entering hard JEITA condition */
 	if (pval.intval == POWER_SUPPLY_HEALTH_COLD ||
-		pval.intval == POWER_SUPPLY_HEALTH_HOT)
+		pval.intval == POWER_SUPPLY_HEALTH_OVERHEAT)
 		return 0;
 
 	if (chg->jeita_soft_fcc[0] < 0 || chg->jeita_soft_fcc[1] < 0 ||
