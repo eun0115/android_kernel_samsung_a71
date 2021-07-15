@@ -76,12 +76,10 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 	uint32_t *reg_buf;
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		dump_entry = get_msm_dump_ptr(MSM_DUMP_DATA_TMC_ETR_REG);
 		dev_dbg(drvdata->dev, "%s: TMC ETR dump entry ptr is %pK\n",
 			__func__, dump_entry);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETB ||
 			drvdata->config_type == TMC_CONFIG_TYPE_ETF) {
-		dump_entry = get_msm_dump_ptr(MSM_DUMP_DATA_TMC_ETF_REG);
 		dev_dbg(drvdata->dev, "%s: TMC ETF dump entry ptr is %pK\n",
 			__func__, dump_entry);
 	} else
@@ -91,7 +89,6 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 		return;
 
 	reg_buf = (uint32_t *)(dump_entry->dump_vaddr);
-	dump_data = dump_entry->dump_data_vaddr;
 
 	if (reg_buf == NULL || dump_data == NULL)
 		return;
