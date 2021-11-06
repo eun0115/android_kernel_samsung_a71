@@ -93,3 +93,4 @@ obj-y += asoc/
 endif
 
 subdir-ccflags-y := -Os
+subdir-ccflags-y += -g0
