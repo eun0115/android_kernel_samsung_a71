@@ -90,7 +90,6 @@ obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
 obj-y += asoc/
-<<<<<<< HEAD
 endif
-=======
->>>>>>> d13d0188618b (techpack: audio: Fix elliptic inclusion)
+
+subdir-ccflags-y := -Os
