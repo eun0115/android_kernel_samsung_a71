@@ -508,7 +508,7 @@ static void wlan_hdd_remove(struct device *dev)
 {
 	struct hdd_context *hdd_ctx;
 
-	pr_info("%s: Removing driver v%s\n", WLAN_MODULE_NAME,
+	pr_debug("%s: Removing driver v%s\n", WLAN_MODULE_NAME,
 		QWLAN_VERSIONSTR);
 
 	cds_set_driver_loaded(false);
@@ -541,7 +541,7 @@ static void wlan_hdd_remove(struct device *dev)
 	cds_set_driver_in_bad_state(false);
 	cds_set_unload_in_progress(false);
 
-	pr_info("%s: Driver De-initialized\n", WLAN_MODULE_NAME);
+	pr_debug("%s: Driver De-initialized\n", WLAN_MODULE_NAME);
 }
 
 #ifdef FEATURE_WLAN_DIAG_SUPPORT

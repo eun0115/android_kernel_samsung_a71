@@ -63,7 +63,7 @@ static int pld_usb_probe(struct usb_interface *interface,
 	ret = pld_context->ops->probe(&pdev->dev,
 				      PLD_BUS_TYPE_USB, interface, (void *)id);
 	if (ret != 0) {
-		pr_err("%s, probe returned %d", __func__, ret);
+		pr_debug("%s, probe returned %d", __func__, ret);
 		atomic_set(&pld_usb_reg_done, false);
 	} else {
 		atomic_set(&pld_usb_reg_done, true);
@@ -90,7 +90,7 @@ static void pld_usb_remove(struct usb_interface *interface)
 		return;
 
 	if (atomic_read(&pld_usb_reg_done) != true) {
-		pr_info("%s: already de-registered!\n", __func__);
+		pr_debug("%s: already de-registered!\n", __func__);
 		return;
 	}
 
@@ -99,7 +99,7 @@ static void pld_usb_remove(struct usb_interface *interface)
 	pld_del_dev(pld_context, &pdev->dev);
 
 	atomic_set(&pld_usb_reg_done, false);
-	pr_info("%s: done!\n", __func__);
+	pr_debug("%s: done!\n", __func__);
 }
 
 /**
@@ -184,7 +184,7 @@ int pld_usb_register_driver(void)
 	else
 		status = -1;
 
-	pr_info("%s usb_register %s, status %d\n", __func__,
+	pr_debug("%s usb_register %s, status %d\n", __func__,
 		(status == 0) ? "done" : "failed", status);
 
 	return status;
@@ -207,5 +207,5 @@ void pld_usb_unregister_driver(void)
 
 	atomic_set(&pld_usb_reg_done, false);
 	usb_deregister(&pld_usb_ops);
-	pr_info("%s usb_deregister done!\n", __func__);
+	pr_debug("%s usb_deregister done!\n", __func__);
 }
