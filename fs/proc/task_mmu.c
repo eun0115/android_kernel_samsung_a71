@@ -1738,14 +1738,12 @@ static inline bool is_pm_freezing(void)
 static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 				unsigned long end, struct mm_walk *walk)
 {
-	struct reclaim_param *rp = walk->private;
-	struct vm_area_struct *vma = rp->vma;
+	struct vm_area_struct *vma = walk->private;
 	pte_t *pte, ptent;
 	spinlock_t *ptl;
 	struct page *page;
 	LIST_HEAD(page_list);
 	int isolated;
-	int reclaimed;
 
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
 	bool is_lru_wb = false;
@@ -1755,7 +1753,7 @@ static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 #endif
 
 	split_huge_pmd(vma, addr, pmd);
-	if (pmd_trans_unstable(pmd) || !rp->nr_to_reclaim)
+	if (pmd_trans_unstable(pmd))
 		return 0;
 cont:
 	if (rwsem_is_contended(&walk->mm->mmap_sem))
@@ -1804,18 +1802,12 @@ cont:
 		inc_node_page_state(page, NR_ISOLATED_ANON +
 				page_is_file_cache(page));
 		isolated++;
-		rp->nr_scanned++;
-		if ((isolated >= SWAP_CLUSTER_MAX) || !rp->nr_to_reclaim)
+		if (isolated >= SWAP_CLUSTER_MAX)
 			break;
 	}
 	pte_unmap_unlock(pte - 1, ptl);
-	reclaimed = reclaim_pages_from_list(&page_list, vma);
-	rp->nr_reclaimed += reclaimed;
-	rp->nr_to_reclaim -= reclaimed;
-	if (rp->nr_to_reclaim < 0)
-		rp->nr_to_reclaim = 0;
-
-	if (rp->nr_to_reclaim && (addr != end))
+	reclaim_pages_from_list(&page_list, vma);
+	if (addr != end)
 		goto cont;
 
 	cond_resched();
@@ -1871,51 +1863,6 @@ enum reclaim_type {
 #endif
 };
 
-struct reclaim_param reclaim_task_anon(struct task_struct *task,
-		int nr_to_reclaim)
-{
-	struct mm_struct *mm;
-	struct vm_area_struct *vma;
-	struct mm_walk reclaim_walk = {};
-	struct reclaim_param rp = {
-		.nr_to_reclaim = nr_to_reclaim,
-	};
-
-	get_task_struct(task);
-	mm = get_task_mm(task);
-	if (!mm)
-		goto out;
-
-	reclaim_walk.mm = mm;
-	reclaim_walk.pmd_entry = reclaim_pte_range;
-
-	reclaim_walk.private = &rp;
-
-	down_read(&mm->mmap_sem);
-	for (vma = mm->mmap; vma; vma = vma->vm_next) {
-		if (is_vm_hugetlb_page(vma))
-			continue;
-
-		if (vma->vm_file)
-			continue;
-
-		if (!rp.nr_to_reclaim)
-			break;
-
-		rp.vma = vma;
-		if (walk_page_range(vma->vm_start, vma->vm_end,
-			&reclaim_walk))
-			break;
-	}
-
-	flush_tlb_mm(mm);
-	up_read(&mm->mmap_sem);
-	mmput(mm);
-out:
-	put_task_struct(task);
-	return rp;
-}
-
 static ssize_t reclaim_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
@@ -1928,7 +1875,6 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 	struct mm_walk reclaim_walk = {};
 	unsigned long start = 0;
 	unsigned long end = 0;
-	struct reclaim_param rp;
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
 	struct zwbs *zwbs[NR_ZWBS];
 #endif
@@ -2007,10 +1953,6 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 	reclaim_walk.mm = mm;
 	reclaim_walk.pmd_entry = reclaim_pte_range;
 
-	rp.nr_to_reclaim = INT_MAX;
-	rp.nr_reclaimed = 0;
-	reclaim_walk.private = &rp;
-
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
 	if (type == RECLAIM_WRITEBACK) {
 		reclaim_walk.pmd_entry = writeback_pte_range;
@@ -2027,7 +1969,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 			if (is_vm_hugetlb_page(vma))
 				continue;
 
-			rp.vma = vma;
+			reclaim_walk.private = vma;
 			if (walk_page_range(max(vma->vm_start, start),
 					min(vma->vm_end, end),
 					&reclaim_walk))
@@ -2050,7 +1992,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 				continue;
 #endif
 
-			rp.vma = vma;
+			reclaim_walk.private = vma;
 			err = walk_page_range(vma->vm_start, vma->vm_end,
 				&reclaim_walk);
 			if (err) {
