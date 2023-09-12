@@ -351,6 +351,8 @@
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,cl-feedback-on;
+	qcom,qg-fast-chg-config;
+	qcom,cl-disable = <1>;
 };
 
 &pm6150_charger {
