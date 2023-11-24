@@ -73,6 +73,8 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
+struct dsi_display *primary_display;
+
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
 {
@@ -5402,10 +5404,21 @@ error:
 	return rc;
 }
 
+static struct attribute *display_fs_attrs[] = {
+	NULL,
+};
+static struct attribute_group display_fs_attrs_group = {
+	.attrs = display_fs_attrs,
+};
+
 static int dsi_display_sysfs_init(struct dsi_display *display)
 {
 	int rc = 0;
 	struct device *dev = &display->pdev->dev;
+
+	rc = sysfs_create_group(&dev->kobj, &display_fs_attrs_group);
+	if (rc)
+		pr_err("failed to create display device attributes");
 
 #if defined(CONFIG_DISPLAY_SAMSUNG)
 	/* In case of vidoe mode panel, dynamic mipi clock feature is required for the noise test.
@@ -5429,6 +5442,8 @@ static int dsi_display_sysfs_deinit(struct dsi_display *display)
 	if (display->panel->panel_mode == DSI_OP_CMD_MODE)
 		sysfs_remove_group(&dev->kobj,
 			&dynamic_dsi_clock_fs_attrs_group);
+
+	sysfs_remove_group(&dev->kobj, &display_fs_attrs_group);
 
 	return 0;
 
@@ -6790,6 +6805,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 exit:
 	*out_modes = display->modes;
 	rc = 0;
+	primary_display = display;
 
 error:
 	if (rc)
@@ -8440,6 +8456,10 @@ int dsi_display_unprepare(struct dsi_display *display)
 	LCD_INFO("--\n");
 #endif
 	return rc;
+}
+
+struct dsi_display *get_main_display(void) {
+	return primary_display;
 }
 
 static int __init dsi_display_register(void)

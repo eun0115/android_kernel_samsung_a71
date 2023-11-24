@@ -264,16 +264,27 @@ static ssize_t secure_ownership_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "1");
 }
 
+static ssize_t sec_ts_fod_pressed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sec_ts_data *data = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", data->fod_pressed);
+}
+
 static DEVICE_ATTR(secure_touch_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
 		secure_touch_enable_show, secure_touch_enable_store);
 static DEVICE_ATTR(secure_touch, S_IRUGO, secure_touch_show, NULL);
 
 static DEVICE_ATTR(secure_ownership, S_IRUGO, secure_ownership_show, NULL);
 
+static DEVICE_ATTR(fod_pressed, S_IRUGO, sec_ts_fod_pressed_show, NULL);
+
 static struct attribute *secure_attr[] = {
 	&dev_attr_secure_touch_enable.attr,
 	&dev_attr_secure_touch.attr,
 	&dev_attr_secure_ownership.attr,
+	&dev_attr_fod_pressed.attr,
 	NULL,
 };
 
@@ -1259,21 +1270,17 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 
 				if (p_event_status->status_data_1 == 2 && p_event_status->status_data_2 == 2) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: Normal changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 5 && p_event_status->status_data_2 == 2) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: lp changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 6) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_BLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: sleep changed(%d)\n", __func__, ts->scrub_id);
 				}
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 0);
 				input_sync(ts->input_dev);
 
 			}
@@ -1293,9 +1300,9 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == STATUS_EVENT_VENDOR_PROXIMITY)) {
 						input_info(true, &ts->client->dev, "%s: EAR_DETECT(%d)\n",
-							__func__, p_event_status->status_data_1);
+							__func__, !p_event_status->status_data_1);
 						input_report_abs(ts->input_dev_proximity, ABS_MT_CUSTOM,
-									p_event_status->status_data_1);
+									!p_event_status->status_data_1);
 						input_sync(ts->input_dev_proximity);
 				}
 			}
@@ -1326,7 +1333,8 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				ts->coord[t_id].action = p_event_coord->tchsta;
 				ts->coord[t_id].x = (p_event_coord->x_11_4 << 4) | (p_event_coord->x_3_0);
 				ts->coord[t_id].y = (p_event_coord->y_11_4 << 4) | (p_event_coord->y_3_0);
-				ts->coord[t_id].z = p_event_coord->z & 0x3F;
+				ts->coord[t_id].z = p_event_coord->z &
+							SEC_TS_PRESSURE_MAX;
 				ts->coord[t_id].ttype = p_event_coord->ttype_3_2 << 2 | p_event_coord->ttype_1_0 << 0;
 				ts->coord[t_id].major = p_event_coord->major;
 				ts->coord[t_id].minor = p_event_coord->minor;
@@ -1534,7 +1542,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			case SEC_TS_GESTURE_CODE_SWIPE:
 				ts->scrub_id = SPONGE_EVENT_TYPE_SPAY;
 				input_info(true, &ts->client->dev, "%s: SPAY: %d\n", __func__, ts->scrub_id);
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				ts->all_spay_count++;
 				break;
 			case SEC_TS_GESTURE_CODE_DOUBLE_TAP:
@@ -1550,7 +1557,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 					input_info(true, &ts->client->dev, "%s: AOD: %d, %d, %d\n",
 							__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
 #endif
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					ts->all_aod_tap_count++;
 				} else if (p_gesture_status->gesture_id == SEC_TS_GESTURE_ID_DOUBLETAP_TO_WAKEUP) {
 					input_info(true, &ts->client->dev, "%s: AOT\n", __func__);
@@ -1571,22 +1577,22 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				input_info(true, &ts->client->dev, "%s: SINGLE TAP: %d, %d, %d\n",
 						__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
 #endif
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				break;
 			case SEC_TS_GESTURE_CODE_PRESS:
 				if (ts->plat_data->support_fod_gesture) {
 					if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_LONG || p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_NORMAL) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD;
 						input_info(true, &ts->client->dev, "%s: FOD: %s\n", __func__, p_gesture_status->gesture_id ? "normal" : "long");
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+						ts->fod_pressed = true;
+						sysfs_notify(&ts->input_dev->dev.kobj, NULL, "fod_pressed");
 					} else if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_RELEASE) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD_RELEASE;
 						input_info(true, &ts->client->dev, "%s: FOD release\n", __func__);
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+					ts->fod_pressed = false;
+					sysfs_notify(&ts->input_dev->dev.kobj, NULL, "fod_pressed");
 					} else if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_OUT) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD_OUT;
 						input_info(true, &ts->client->dev, "%s: FOD OUT\n", __func__);
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					}
 				} else {
 					input_info(true, &ts->client->dev, "%s: FOD: %sPRESS\n",
@@ -1596,7 +1602,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			}
 
 			input_sync(ts->input_dev);
-			input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 0);
 			break;
 		default:
 			input_err(true, &ts->client->dev, "%s: unknown event %x %x %x %x %x %x\n", __func__,
@@ -2342,9 +2347,7 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 	of_property_read_u32(np, "sec,ss_touch_num", &pdata->ss_touch_num);
 	input_err(true, dev, "%s: ss_touch_num:%d\n", __func__, pdata->ss_touch_num);
 #endif
-#ifdef CONFIG_SEC_FACTORY
 	pdata->support_mt_pressure = true;
-#endif
 	input_err(true, &client->dev, "%s: i2c buffer limit: %d, lcd_id:%06X, bringup:%d, FW:%s(%d),"
 			" id:%d,%d, dex:%d, max(%d/%d), FOD:%d, AOT:%d, ED:%d\n",
 			__func__, pdata->i2c_burstmax, lcdtype, pdata->bringup, pdata->firmware_name,
@@ -2556,7 +2559,8 @@ static void sec_ts_set_input_prop(struct sec_ts_data *ts, struct input_dev *dev,
 	input_set_abs_params(dev, ABS_MT_TOUCH_MINOR, 0, 255, 0, 0);
 	input_set_abs_params(dev, ABS_MT_CUSTOM, 0, 0xFFFFFFFF, 0, 0);
 	if (ts->plat_data->support_mt_pressure)
-		input_set_abs_params(dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
+		input_set_abs_params(dev, ABS_MT_PRESSURE, 0,
+					SEC_TS_PRESSURE_MAX, 0, 0);
 
 	if (propbit == INPUT_PROP_POINTER)
 		input_mt_init_slots(dev, MAX_SUPPORT_TOUCH_COUNT, INPUT_MT_POINTER);

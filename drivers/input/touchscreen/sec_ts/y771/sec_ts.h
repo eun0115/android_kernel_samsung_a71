@@ -110,6 +110,7 @@
 #define SEC_TS_FW_BLK_SIZE_MAX		(512)
 #define SEC_TS_FW_BLK_SIZE_DEFAULT	(512)	// y761 & y771 ~
 #define SEC_TS_SELFTEST_REPORT_SIZE	80
+#define SEC_TS_PRESSURE_MAX		0x3f
 
 #define SEC_TS_FW_HEADER_SIGN		0x53494654
 #define SEC_TS_FW_CHUNK_SIGN		0x53434654
@@ -810,6 +811,7 @@ struct sec_ts_data {
 	unsigned int scrub_id;
 	unsigned int scrub_x;
 	unsigned int scrub_y;
+	int fod_pressed;
 
 	u8 tsp_temp_data;
 	bool tsp_temp_data_skip;
