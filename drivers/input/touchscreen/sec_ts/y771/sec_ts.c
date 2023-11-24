@@ -1270,21 +1270,17 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 
 				if (p_event_status->status_data_1 == 2 && p_event_status->status_data_2 == 2) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: Normal changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 5 && p_event_status->status_data_2 == 2) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: lp changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 6) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_BLOCK;
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
 					input_info(true, &ts->client->dev, "%s: sleep changed(%d)\n", __func__, ts->scrub_id);
 				}
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 0);
 				input_sync(ts->input_dev);
 
 			}
@@ -1545,7 +1541,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			case SEC_TS_GESTURE_CODE_SWIPE:
 				ts->scrub_id = SPONGE_EVENT_TYPE_SPAY;
 				input_info(true, &ts->client->dev, "%s: SPAY: %d\n", __func__, ts->scrub_id);
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				ts->all_spay_count++;
 				break;
 			case SEC_TS_GESTURE_CODE_DOUBLE_TAP:
@@ -1561,7 +1556,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 					input_info(true, &ts->client->dev, "%s: AOD: %d, %d, %d\n",
 							__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
 #endif
-					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					ts->all_aod_tap_count++;
 				} else if (p_gesture_status->gesture_id == SEC_TS_GESTURE_ID_DOUBLETAP_TO_WAKEUP) {
 					input_info(true, &ts->client->dev, "%s: AOT\n", __func__);
@@ -1582,26 +1576,22 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				input_info(true, &ts->client->dev, "%s: SINGLE TAP: %d, %d, %d\n",
 						__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
 #endif
-				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				break;
 			case SEC_TS_GESTURE_CODE_PRESS:
 				if (ts->plat_data->support_fod_gesture) {
 					if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_LONG || p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_NORMAL) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD;
 						input_info(true, &ts->client->dev, "%s: FOD: %s\n", __func__, p_gesture_status->gesture_id ? "normal" : "long");
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 						ts->fod_pressed = true;
 						sysfs_notify(&ts->input_dev->dev.kobj, NULL, "fod_pressed");
 					} else if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_RELEASE) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD_RELEASE;
 						input_info(true, &ts->client->dev, "%s: FOD release\n", __func__);
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					ts->fod_pressed = false;
 					sysfs_notify(&ts->input_dev->dev.kobj, NULL, "fod_pressed");
 					} else if (p_gesture_status->gesture_id == SEC_GESTURE_ID_FOD_OUT) {
 						ts->scrub_id = SPONGE_EVENT_TYPE_FOD_OUT;
 						input_info(true, &ts->client->dev, "%s: FOD OUT\n", __func__);
-						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					}
 				} else {
 					input_info(true, &ts->client->dev, "%s: FOD: %sPRESS\n",
@@ -1611,7 +1601,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			}
 
 			input_sync(ts->input_dev);
-			input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 0);
 			break;
 		default:
 			input_err(true, &ts->client->dev, "%s: unknown event %x %x %x %x %x %x\n", __func__,
