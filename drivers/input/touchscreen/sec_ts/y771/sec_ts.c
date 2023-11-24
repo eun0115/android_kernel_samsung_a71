@@ -1293,9 +1293,9 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == STATUS_EVENT_VENDOR_PROXIMITY)) {
 						input_info(true, &ts->client->dev, "%s: EAR_DETECT(%d)\n",
-							__func__, p_event_status->status_data_1);
+							__func__, !p_event_status->status_data_1);
 						input_report_abs(ts->input_dev_proximity, ABS_MT_CUSTOM,
-									p_event_status->status_data_1);
+									!p_event_status->status_data_1);
 						input_sync(ts->input_dev_proximity);
 				}
 			}
