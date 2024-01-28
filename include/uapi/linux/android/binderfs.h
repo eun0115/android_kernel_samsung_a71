@@ -32,4 +32,3 @@ struct binderfs_device {
 #define BINDER_CTL_ADD _IOWR('b', 1, struct binderfs_device)
 
 #endif /* _UAPI_LINUX_BINDER_CTL_H */
-
