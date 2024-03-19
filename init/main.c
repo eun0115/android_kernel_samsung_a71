@@ -120,6 +120,16 @@ static int kernel_init(void *);
 extern void init_IRQ(void);
 extern void radix_tree_init(void);
 
+bool is_legacy_ebpf = false;
+EXPORT_SYMBOL(is_legacy_ebpf);
+
+static int __init read_is_legacy_ebpf(char *s)
+{
+    strtobool(s, &is_legacy_ebpf);
+    return 1;
+}
+__setup("init.is_legacy_ebpf=", read_is_legacy_ebpf);
+
 #ifdef CONFIG_DEFERRED_INITCALLS
 extern initcall_t __deferred_initcall_start[], __deferred_initcall_end[];
 
