@@ -4868,7 +4868,6 @@
 				sec,project_name = "A71", "A715";
 				sec,tclm_level = <0x2>;
 				sec,afe_base = <0x107>;
-				support_dex_mode;
 				sec,i2c-burstmax = <0xffff>;
 				sec,ss_touch_num = <0x1>;
 				enable_settings_aot;
