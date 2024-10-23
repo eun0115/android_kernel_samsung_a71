@@ -759,7 +759,6 @@ static void ipa_release_ap_smmu_mappings(enum ipa_client_type client)
 				ipa3_ctx->wdi_map_cnt--;
 			}
 			kfree(wdi_res[i].res);
-			wdi_res[i].res = NULL;
 			wdi_res[i].valid = false;
 		}
 	}
@@ -796,7 +795,6 @@ static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 				ipa3_ctx->wdi_map_cnt--;
 			}
 			kfree(wdi_res[i].res);
-			wdi_res[i].res = NULL;
 			wdi_res[i].valid = false;
 		}
 	}
@@ -948,7 +946,6 @@ void ipa3_release_wdi3_gsi_smmu_mappings(u8 dir)
 				ipa3_ctx->wdi_map_cnt--;
 			}
 			kfree(wdi_res[i].res);
-			wdi_res[i].res = NULL;
 			wdi_res[i].valid = false;
 		}
 	}
@@ -1673,6 +1670,7 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 		ipa3_ctx->uc_wdi_ctx.stats_notify = in->wdi_notify;
 	else
 		IPADBG("in->wdi_notify is null\n");
+	
 
 	ipa3_enable_data_path(ipa_ep_idx);
 

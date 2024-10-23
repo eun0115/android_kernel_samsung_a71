@@ -49,7 +49,6 @@
 #include "msm_kms.h"
 #include "sde_wb.h"
 #include "sde_dbg.h"
-#include <drm/drm_client.h>
 
 /*
  * MSM driver version:
@@ -62,6 +61,28 @@
 #define MSM_VERSION_PATCHLEVEL	0
 
 static DEFINE_MUTEX(msm_release_lock);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+static BLOCKING_NOTIFIER_HEAD(msm_drm_notifier_list);
+
+int msm_drm_register_notifier_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&msm_drm_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_drm_register_notifier_client);
+
+int msm_drm_unregister_notifier_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&msm_drm_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_drm_unregister_notifier_client);
+
+int __msm_drm_notifier_call_chain(unsigned long event, void *data)
+{
+	return blocking_notifier_call_chain(&msm_drm_notifier_list,
+					event, data);
+}
+#endif
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
@@ -312,7 +333,6 @@ static int msm_drm_uninit(struct device *dev)
 	drm_mode_config_cleanup(ddev);
 
 	if (priv->registered) {
-		drm_client_dev_unregister(ddev);
 		drm_dev_unregister(ddev);
 		priv->registered = false;
 	}
@@ -816,6 +836,11 @@ static void load_gpu(struct drm_device *dev)
 }
 #endif
 
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+struct msm_file_private *msm_ioctl_power_ctrl_ctx;
+DEFINE_MUTEX(msm_ioctl_power_ctrl_ctx_lock);
+#endif
+
 static int msm_open(struct drm_device *dev, struct drm_file *file)
 {
 	struct msm_file_private *ctx;
@@ -874,6 +899,13 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 				priv->pclient, false);
 	}
 	mutex_unlock(&ctx->power_lock);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+	mutex_lock(&msm_ioctl_power_ctrl_ctx_lock);
+	if (msm_ioctl_power_ctrl_ctx == ctx)
+		msm_ioctl_power_ctrl_ctx = NULL;
+	mutex_unlock(&msm_ioctl_power_ctrl_ctx_lock);
+#endif
 
 	kfree(ctx);
 }
@@ -1555,13 +1587,6 @@ static int msm_release(struct inode *inode, struct file *filp)
 		kfree(node);
 	}
 
-	msm_preclose(dev, file_priv);
-
-       /**
-	* Handle preclose operation here for removing fb's whose
-	* refcount > 1. This operation is not triggered from upstream
-	* drm as msm_driver does not support DRIVER_LEGACY feature.
-	*/
 	ret = drm_release(inode, filp);
 	filp->private_data = NULL;
 end:
@@ -1642,6 +1667,12 @@ static int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
 
 	priv = dev->dev_private;
 
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+	mutex_lock(&msm_ioctl_power_ctrl_ctx_lock);
+	msm_ioctl_power_ctrl_ctx = ctx;
+	mutex_unlock(&msm_ioctl_power_ctrl_ctx_lock);
+#endif
+
 	mutex_lock(&ctx->power_lock);
 
 	old_cnt = ctx->enable_refcnt;
@@ -1670,6 +1701,12 @@ static int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
 			vote_req);
 	SDE_EVT32(current->pid, power_ctrl->enable, ctx->enable_refcnt,
 			vote_req);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+	pr_info("%s enable %d, refcnt %d, vote_req %d\n", __func__,
+			power_ctrl->enable, ctx->enable_refcnt, vote_req);
+#endif
+
 	mutex_unlock(&ctx->power_lock);
 	return rc;
 }
@@ -1720,6 +1757,7 @@ static struct drm_driver msm_driver = {
 				DRIVER_ATOMIC |
 				DRIVER_MODESET,
 	.open               = msm_open,
+	.preclose           = msm_preclose,
 	.postclose          = msm_postclose,
 	.lastclose          = msm_lastclose,
 	.irq_handler        = msm_irq,
@@ -1819,7 +1857,10 @@ static int msm_runtime_suspend(struct device *dev)
 	DBG("");
 
 	if (priv->mdss)
-		return msm_mdss_disable(priv->mdss);
+		msm_mdss_disable(priv->mdss);
+	else
+		sde_power_resource_enable(&priv->phandle,
+				priv->pclient, false);
 
 	return 0;
 }
@@ -1828,13 +1869,17 @@ static int msm_runtime_resume(struct device *dev)
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev->dev_private;
+	int ret;
 
 	DBG("");
 
 	if (priv->mdss)
-		return msm_mdss_enable(priv->mdss);
+		ret = msm_mdss_enable(priv->mdss);
+	else
+		ret = sde_power_resource_enable(&priv->phandle,
+				priv->pclient, true);
 
-	return 0;
+	return ret;
 }
 #endif
 
@@ -1940,6 +1985,12 @@ static int add_display_components(struct device *dev,
 			if (!node)
 				break;
 
+#ifndef CONFIG_SEC_DISPLAYPORT
+			if (!strncmp(node->name, "qcom,dp_display", 15)) {
+				pr_info("[drm-dp] disabled displayport!\n");
+				continue;
+			}
+#endif
 			component_match_add(dev, matchptr, compare_of, node);
 		}
 

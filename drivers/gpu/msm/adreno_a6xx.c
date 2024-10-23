@@ -1,4 +1,4 @@
-/* Copyright (c)2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c)2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,7 +388,6 @@ static struct a6xx_protected_regs {
 	{ 0x8D0, 0x23, 0 },
 	{ 0x980, 0x4, 0 },
 	{ 0xA630, 0x0, 1 },
-	{ 0x1b400, 0x1fff, 1 },
 };
 
 /* IFPC & Preemption static powerup restore list */
@@ -775,6 +774,8 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	}
 }
 
+#define AHB_CNTL_VAL 0x1B0F
+
 /*
  * a6xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
@@ -950,6 +951,12 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
+
+	adreno_cx_misc_regwrite(adreno_dev, A6XX_GPU_CX_MISC_CX_AHB_AON_CNTL, AHB_CNTL_VAL);
+	adreno_cx_misc_regwrite(adreno_dev, A6XX_GPU_CX_MISC_CX_AHB_GMU_CNTL, AHB_CNTL_VAL);
+	adreno_cx_misc_regwrite(adreno_dev, A6XX_GPU_CX_MISC_CX_AHB_CP_CNTL, AHB_CNTL_VAL);
+	adreno_cx_misc_regwrite(adreno_dev, A6XX_GPU_CX_MISC_CX_AHB_VBIF_SMMU_CNTL, AHB_CNTL_VAL);
+	adreno_cx_misc_regwrite(adreno_dev, A6XX_GPU_CX_MISC_CX_AHB_HOST_CNTL, AHB_CNTL_VAL);
 
 	a6xx_protect_init(adreno_dev);
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,11 +24,8 @@
 #include "cam_smmu_api.h"
 #include "cam_debug_util.h"
 
-static struct cam_mem_table tbl = {
-	.m_lock = __MUTEX_INITIALIZER(tbl.m_lock),
-};
-
-static atomic_t cam_mem_mgr_refcnt = ATOMIC_INIT(0);
+static struct cam_mem_table tbl;
+static atomic_t cam_mem_mgr_state = ATOMIC_INIT(CAM_MEM_MGR_UNINITIALIZED);
 
 static int cam_mem_util_get_dma_dir(uint32_t flags)
 {
@@ -132,27 +129,12 @@ int cam_mem_mgr_init(void)
 	int i;
 	int bitmap_size;
 
-	mutex_lock(&tbl.m_lock);
-
-	if (atomic_inc_return(&cam_mem_mgr_refcnt) > 1) {
-		CAM_DBG(CAM_MEM,
-			"Mem mgr refcnt: %d",
-			atomic_read(&cam_mem_mgr_refcnt));
-		mutex_unlock(&tbl.m_lock);
-		return 0;
-	}
-
 	memset(tbl.bufq, 0, sizeof(tbl.bufq));
 
 	bitmap_size = BITS_TO_LONGS(CAM_MEM_BUFQ_MAX) * sizeof(long);
 	tbl.bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-	if (!tbl.bitmap) {
-		atomic_dec(&cam_mem_mgr_refcnt);
-		CAM_DBG(CAM_MEM, "Mem mgr refcnt: %d",
-			atomic_read(&cam_mem_mgr_refcnt));
-		mutex_unlock(&tbl.m_lock);
+	if (!tbl.bitmap)
 		return -ENOMEM;
-	}
 
 	tbl.bits = bitmap_size * BITS_PER_BYTE;
 	bitmap_zero(tbl.bitmap, tbl.bits);
@@ -163,8 +145,9 @@ int cam_mem_mgr_init(void)
 		tbl.bufq[i].fd = -1;
 		tbl.bufq[i].buf_handle = -1;
 	}
+	mutex_init(&tbl.m_lock);
 
-	mutex_unlock(&tbl.m_lock);
+	atomic_set(&cam_mem_mgr_state, CAM_MEM_MGR_INITIALIZED);
 
 	return 0;
 }
@@ -206,7 +189,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 
 	*len_ptr = 0;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -234,7 +217,6 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 			tbl.bufq[idx].fd,
 			iova_ptr,
 			len_ptr);
-
 	if (rc) {
 		CAM_ERR(CAM_MEM,
 			"fail to map buf_hdl:0x%x, mmu_hdl: 0x%x for fd:%d",
@@ -257,7 +239,7 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 	int idx;
 	struct dma_buf *dmabuf = NULL;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -269,50 +251,33 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
 		return -EINVAL;
 
-	mutex_lock(&tbl.bufq[idx].q_lock);
-	if (!tbl.bufq[idx].active) {
-		CAM_ERR(CAM_MEM, "idx: %d not active", idx);
-		rc = -EPERM;
-		goto end;
-	}
+	if (!tbl.bufq[idx].active)
+		return -EPERM;
 
-	if (buf_handle != tbl.bufq[idx].buf_handle) {
-		CAM_ERR(CAM_MEM, "idx: %d Invalid buf handle %d",
-				idx, buf_handle);
-		rc = -EINVAL;
-		goto end;
-	}
+	if (buf_handle != tbl.bufq[idx].buf_handle)
+		return -EINVAL;
 
-	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
-		CAM_ERR(CAM_MEM, "idx: %d Invalid flag 0x%x",
-					idx, tbl.bufq[idx].flags);
-		rc = -EINVAL;
-		goto end;
-	}
+	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS))
+		return -EINVAL;
 
 	if (tbl.bufq[idx].kmdvaddr) {
 		dmabuf = tbl.bufq[idx].dma_buf;
 		if (!dmabuf) {
 			CAM_ERR(CAM_MEM, "Invalid DMA buffer pointer");
-			rc = -EINVAL;
-			goto end;
+			return -EINVAL;
 		}
 		rc = dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		if (rc) {
 			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
-			goto end;
+			return rc;
 		}
 	} else {
-		CAM_ERR(CAM_MEM, "Invalid kmdvaddr");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 	*len = tbl.bufq[idx].len;
 
-end:
-	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
@@ -323,7 +288,7 @@ int cam_mem_put_cpu_buf(int32_t buf_handle)
 	int idx;
 	struct dma_buf *dmabuf = NULL;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -335,38 +300,30 @@ int cam_mem_put_cpu_buf(int32_t buf_handle)
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
 		return -EINVAL;
 
-	mutex_lock(&tbl.bufq[idx].q_lock);
-	if (!tbl.bufq[idx].active) {
-		CAM_ERR(CAM_MEM, "idx: %d not active", idx);
-		rc = -EPERM;
-		goto end;
-	}
+	if (!tbl.bufq[idx].active)
+		return -EPERM;
 
-	if (buf_handle != tbl.bufq[idx].buf_handle) {
-		CAM_ERR(CAM_MEM, "idx: %d Invalid buf handle %d",
-				idx, buf_handle);
-		rc = -EINVAL;
-		goto end;
-	}
+	if (buf_handle != tbl.bufq[idx].buf_handle)
+		return -EINVAL;
 
 	dmabuf = tbl.bufq[idx].dma_buf;
 	if (!dmabuf) {
 		CAM_ERR(CAM_CRM, "Invalid DMA buffer pointer");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	if ((tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) &&
 		(tbl.bufq[idx].kmdvaddr)) {
 		rc = dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
-		if (rc)
+		if (rc) {
 			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
+			return rc;
+		}
 	} else {
 		CAM_ERR(CAM_MEM, "Invalid buf flag");
 		rc = -EINVAL;
 	}
-end:
-	mutex_unlock(&tbl.bufq[idx].q_lock);
+
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_put_cpu_buf);
@@ -377,7 +334,7 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	uint32_t cache_dir;
 	unsigned long dmabuf_flag = 0;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -529,9 +486,6 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	} else if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
 		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
-	} else if (cmd->flags & CAM_MEM_FLAG_CP_PIXEL) {
-		heap_id = ION_HEAP(ION_SECURE_HEAP_ID);
-		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_PIXEL;
 	} else {
 		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
 			ION_HEAP(ION_CAMERA_HEAP_ID);
@@ -561,9 +515,8 @@ static int cam_mem_util_check_alloc_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
-			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
-		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
+		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
 		CAM_ERR(CAM_MEM, "Kernel mapping in secure mode not allowed");
 		return -EINVAL;
 	}
@@ -584,9 +537,8 @@ static int cam_mem_util_check_map_flags(struct cam_mem_mgr_map_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
-			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
-		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
+		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
 		CAM_ERR(CAM_MEM,
 			"Kernel mapping in secure mode not allowed, flags=0x%x",
 			cmd->flags);
@@ -681,7 +633,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	uintptr_t kvaddr = 0;
 	size_t klen;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -803,7 +755,7 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	dma_addr_t hw_vaddr = 0;
 	size_t len = 0;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -827,8 +779,7 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 
 	dmabuf = dma_buf_get(cmd->fd);
 	if (IS_ERR_OR_NULL((void *)(dmabuf))) {
-		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd %d, rc %d",
-			cmd->fd, (IS_ERR(dmabuf) ? PTR_ERR(dmabuf) : 0));
+		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd");
 		return -EINVAL;
 	}
 
@@ -974,6 +925,7 @@ static int cam_mem_mgr_cleanup_table(void)
 {
 	int i;
 
+	mutex_lock(&tbl.m_lock);
 	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
 		if (!tbl.bufq[i].active) {
 			CAM_DBG(CAM_MEM,
@@ -1001,7 +953,6 @@ static int cam_mem_mgr_cleanup_table(void)
 		tbl.bufq[i].num_hdl = 0;
 		tbl.bufq[i].dma_buf = NULL;
 		tbl.bufq[i].active = false;
-		tbl.bufq[i].kmdvaddr = 0;
 		mutex_unlock(&tbl.bufq[i].q_lock);
 		mutex_destroy(&tbl.bufq[i].q_lock);
 	}
@@ -1009,25 +960,21 @@ static int cam_mem_mgr_cleanup_table(void)
 	bitmap_zero(tbl.bitmap, tbl.bits);
 	/* We need to reserve slot 0 because 0 is invalid */
 	set_bit(0, tbl.bitmap);
+	mutex_unlock(&tbl.m_lock);
 
 	return 0;
 }
 
 void cam_mem_mgr_deinit(void)
 {
-	mutex_lock(&tbl.m_lock);
-	if (!atomic_dec_and_test(&cam_mem_mgr_refcnt)) {
-		CAM_DBG(CAM_MEM, "Mem mgr refcnt: %d",
-			atomic_read(&cam_mem_mgr_refcnt));
-		mutex_unlock(&tbl.m_lock);
-		return;
-	}
-
+	atomic_set(&cam_mem_mgr_state, CAM_MEM_MGR_UNINITIALIZED);
 	cam_mem_mgr_cleanup_table();
+	mutex_lock(&tbl.m_lock);
 	bitmap_zero(tbl.bitmap, tbl.bits);
 	kfree(tbl.bitmap);
 	tbl.bitmap = NULL;
 	mutex_unlock(&tbl.m_lock);
+	mutex_destroy(&tbl.m_lock);
 }
 
 static int cam_mem_util_unmap(int32_t idx,
@@ -1058,7 +1005,7 @@ static int cam_mem_util_unmap(int32_t idx,
 				tbl.bufq[idx].kmdvaddr);
 			if (rc)
 				CAM_ERR(CAM_MEM,
-					"Failed, dmabuf=%pK, kmdvaddr=%lxK",
+					"Failed, dmabuf=%pK, kmdvaddr=%llxK",
 					tbl.bufq[idx].dma_buf,
 					tbl.bufq[idx].kmdvaddr);
 		}
@@ -1104,7 +1051,6 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
 	tbl.bufq[idx].active = false;
-	tbl.bufq[idx].kmdvaddr = 0;
 	mutex_unlock(&tbl.bufq[idx].q_lock);
 	mutex_destroy(&tbl.bufq[idx].q_lock);
 	clear_bit(idx, tbl.bitmap);
@@ -1118,7 +1064,7 @@ int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd)
 	int idx;
 	int rc;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -1171,7 +1117,7 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 
 	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -1296,7 +1242,7 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp)
 	int32_t idx;
 	int rc;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -1349,7 +1295,7 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
 	int32_t smmu_hdl = 0;
 	int32_t num_hdl = 0;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
@@ -1443,7 +1389,7 @@ int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp)
 	int rc;
 	int32_t smmu_hdl;
 
-	if (!atomic_read(&cam_mem_mgr_refcnt)) {
+	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
 		return -EINVAL;
 	}
