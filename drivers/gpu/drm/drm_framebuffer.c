@@ -92,21 +92,20 @@ int drm_framebuffer_check_src_coords(uint32_t src_x, uint32_t src_y,
 /**
  * drm_mode_addfb - add an FB to the graphics configuration
  * @dev: drm device for the ioctl
- * @data: data pointer for the ioctl
- * @file_priv: drm file for the ioctl call
+ * @or: pointer to request structure
+ * @file_priv: drm file
  *
  * Add a new FB to the specified CRTC, given a user request. This is the
  * original addfb ioctl which only supported RGB formats.
  *
- * Called by the user via ioctl.
+ * Called by the user via ioctl, or by an in-kernel client.
  *
  * Returns:
  * Zero on success, negative errno on failure.
  */
-int drm_mode_addfb(struct drm_device *dev,
-		   void *data, struct drm_file *file_priv)
+int drm_mode_addfb(struct drm_device *dev, struct drm_mode_fb_cmd *or,
+		   struct drm_file *file_priv)
 {
-	struct drm_mode_fb_cmd *or = data;
 	struct drm_mode_fb_cmd2 r = {};
 	int ret;
 
@@ -129,6 +128,12 @@ int drm_mode_addfb(struct drm_device *dev,
 	or->fb_id = r.fb_id;
 
 	return 0;
+}
+
+int drm_mode_addfb_ioctl(struct drm_device *dev,
+			 void *data, struct drm_file *file_priv)
+{
+	return drm_mode_addfb(dev, data, file_priv);
 }
 
 static int fb_plane_width(int width,
@@ -269,7 +274,8 @@ drm_internal_framebuffer_create(struct drm_device *dev,
 	struct drm_framebuffer *fb;
 	int ret;
 
-	if (r->flags & ~(DRM_MODE_FB_INTERLACED | DRM_MODE_FB_MODIFIERS)) {
+	if (r->flags & ~(DRM_MODE_FB_INTERLACED | DRM_MODE_FB_MODIFIERS |
+			DRM_MODE_FB_SECURE)) {
 		DRM_DEBUG_KMS("bad framebuffer flags 0x%08x\n", r->flags);
 		return ERR_PTR(-EINVAL);
 	}
@@ -363,29 +369,28 @@ static void drm_mode_rmfb_work_fn(struct work_struct *w)
 
 /**
  * drm_mode_rmfb - remove an FB from the configuration
- * @dev: drm device for the ioctl
- * @data: data pointer for the ioctl
- * @file_priv: drm file for the ioctl call
+ * @dev: drm device
+ * @fb_id: id of framebuffer to remove
+ * @file_priv: drm file
  *
- * Remove the FB specified by the user.
+ * Remove the specified FB.
  *
- * Called by the user via ioctl.
+ * Called by the user via ioctl, or by an in-kernel client.
  *
  * Returns:
  * Zero on success, negative errno on failure.
  */
-int drm_mode_rmfb(struct drm_device *dev,
-		   void *data, struct drm_file *file_priv)
+int drm_mode_rmfb(struct drm_device *dev, u32 fb_id,
+		  struct drm_file *file_priv)
 {
 	struct drm_framebuffer *fb = NULL;
 	struct drm_framebuffer *fbl = NULL;
-	uint32_t *id = data;
 	int found = 0;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	fb = drm_framebuffer_lookup(dev, *id);
+	fb = drm_framebuffer_lookup(dev, file_priv, fb_id);
 	if (!fb)
 		return -ENOENT;
 
@@ -431,6 +436,14 @@ fail_unref:
 	return -ENOENT;
 }
 
+int drm_mode_rmfb_ioctl(struct drm_device *dev,
+			void *data, struct drm_file *file_priv)
+{
+	uint32_t *fb_id = data;
+
+	return drm_mode_rmfb(dev, *fb_id, file_priv);
+}
+
 /**
  * drm_mode_getfb - get FB info
  * @dev: drm device for the ioctl
@@ -454,7 +467,7 @@ int drm_mode_getfb(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	fb = drm_framebuffer_lookup(dev, r->fb_id);
+	fb = drm_framebuffer_lookup(dev, file_priv, r->fb_id);
 	if (!fb)
 		return -ENOENT;
 
@@ -526,7 +539,7 @@ int drm_mode_dirtyfb_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	fb = drm_framebuffer_lookup(dev, r->fb_id);
+	fb = drm_framebuffer_lookup(dev, file_priv, r->fb_id);
 	if (!fb)
 		return -ENOENT;
 
@@ -672,6 +685,7 @@ int drm_framebuffer_init(struct drm_device *dev, struct drm_framebuffer *fb,
 	INIT_LIST_HEAD(&fb->filp_head);
 
 	fb->funcs = funcs;
+	strlcpy(fb->comm, current->comm, TASK_COMM_LEN);
 
 	ret = __drm_mode_object_add(dev, &fb->base, DRM_MODE_OBJECT_FB,
 				    false, drm_framebuffer_free);
@@ -699,12 +713,13 @@ EXPORT_SYMBOL(drm_framebuffer_init);
  * again, using drm_framebuffer_put().
  */
 struct drm_framebuffer *drm_framebuffer_lookup(struct drm_device *dev,
+					       struct drm_file *file_priv,
 					       uint32_t id)
 {
 	struct drm_mode_object *obj;
 	struct drm_framebuffer *fb = NULL;
 
-	obj = __drm_mode_object_find(dev, id, DRM_MODE_OBJECT_FB);
+	obj = __drm_mode_object_find(dev, file_priv, id, DRM_MODE_OBJECT_FB);
 	if (obj)
 		fb = obj_to_fb(obj);
 	return fb;

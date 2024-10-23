@@ -33,6 +33,7 @@
 #include <linux/moduleparam.h>
 
 #include <drm/drmP.h>
+#include <drm/drm_client.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_crtc_helper.h>
@@ -99,7 +100,7 @@ drm_mode_validate_pipeline(struct drm_display_mode *mode,
 
 	/* Step 2: Validate against encoders and crtcs */
 	for (i = 0; i < DRM_CONNECTOR_MAX_ENCODER; i++) {
-		struct drm_encoder *encoder = drm_encoder_find(dev, ids[i]);
+		struct drm_encoder *encoder = drm_encoder_find(dev, NULL, ids[i]);
 		struct drm_crtc *crtc;
 
 		if (!encoder)
@@ -581,6 +582,8 @@ void drm_kms_helper_hotplug_event(struct drm_device *dev)
 	drm_sysfs_hotplug_event(dev);
 	if (dev->mode_config.funcs->output_poll_changed)
 		dev->mode_config.funcs->output_poll_changed(dev);
+
+	drm_client_dev_hotplug(dev);
 }
 EXPORT_SYMBOL(drm_kms_helper_hotplug_event);
 

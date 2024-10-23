@@ -657,6 +657,12 @@ struct drm_connector_funcs {
 
 /* mode specified on the command line */
 struct drm_cmdline_mode {
+	/**
+	 * @name:
+	 *
+	 * Name of the mode.
+	 */
+	char name[DRM_DISPLAY_MODE_LEN];
 	bool specified;
 	bool refresh_specified;
 	bool bpp_specified;
@@ -699,6 +705,20 @@ struct drm_cmdline_mode {
  * @audio_latency: audio latency info from ELD, if found
  * @null_edid_counter: track sinks that give us all zeros for the EDID
  * @bad_edid_counter: track sinks that give us an EDID with invalid checksum
+ * @pt_scan_info: PT scan info obtained from the VCDB of EDID
+ * @it_scan_info: IT scan info obtained from the VCDB of EDID
+ * @ce_scan_info: CE scan info obtained from the VCDB of EDID
+ * @hdr_eotf: Electro optical transfer function obtained from HDR block
+ * @hdr_metadata_type_one: Metadata type one obtained from HDR block
+ * @hdr_max_luminance: desired max luminance obtained from HDR block
+ * @hdr_avg_luminance: desired avg luminance obtained from HDR block
+ * @hdr_min_luminance: desired min luminance obtained from HDR block
+ * @hdr_supported: does the sink support HDR content
+ * @max_tmds_char: indicates the maximum TMDS Character Rate supported
+ * @scdc_present: when set the sink supports SCDC functionality
+ * @rr_capable: when set the sink is capable of initiating an SCDC read request
+ * @supports_scramble: when set the sink supports less than 340Mcsc scrambling
+ * @flags_3d: 3D view(s) supported by the sink, see drm_edid.h (DRM_EDID_3D_*)
  * @edid_corrupt: indicates whether the last read EDID was corrupt
  * @debugfs_entry: debugfs directory for this connector
  * @has_tile: is this connector connected to a tiled monitor
@@ -873,6 +893,23 @@ struct drm_connector {
 	int null_edid_counter; /* needed to workaround some HW bugs where we get all 0s */
 	unsigned bad_edid_counter;
 
+	u8 pt_scan_info;
+	u8 it_scan_info;
+	u8 ce_scan_info;
+	u32 hdr_eotf;
+	bool hdr_metadata_type_one;
+	u32 hdr_max_luminance;
+	u32 hdr_avg_luminance;
+	u32 hdr_min_luminance;
+	bool hdr_supported;
+
+	/* EDID bits HDMI 2.0 */
+	int max_tmds_char;	/* in Mcsc */
+	bool scdc_present;
+	bool rr_capable;
+	bool supports_scramble;
+	int flags_3d;
+
 	/* Flag for raw EDID header corruption - used in Displayport
 	 * compliance testing - * Displayport Link CTS Core 1.2 rev1.1 4.2.2.6
 	 */
@@ -934,10 +971,11 @@ static inline unsigned drm_connector_index(struct drm_connector *connector)
  * add takes a reference to it.
  */
 static inline struct drm_connector *drm_connector_lookup(struct drm_device *dev,
+		struct drm_file *file_priv,
 		uint32_t id)
 {
 	struct drm_mode_object *mo;
-	mo = drm_mode_object_find(dev, id, DRM_MODE_OBJECT_CONNECTOR);
+	mo = drm_mode_object_find(dev, file_priv, id, DRM_MODE_OBJECT_CONNECTOR);
 	return mo ? obj_to_connector(mo) : NULL;
 }
 
@@ -1070,5 +1108,18 @@ void drm_connector_list_iter_end(struct drm_connector_list_iter *iter);
  */
 #define drm_for_each_connector_iter(connector, iter) \
 	while ((connector = drm_connector_list_iter_next(iter)))
+
+/**
+ * drm_connector_for_each_possible_encoder - iterate connector's possible encoders
+ * @connector: &struct drm_connector pointer
+ * @encoder: &struct drm_encoder pointer used as cursor
+ * @__i: int iteration cursor, for macro-internal use
+ */
+#define drm_connector_for_each_possible_encoder(connector, encoder, __i) \
+	for ((__i) = 0; (__i) < ARRAY_SIZE((connector)->encoder_ids) && \
+		     (connector)->encoder_ids[(__i)] != 0; (__i)++) \
+		for_each_if((encoder) = \
+			    drm_encoder_find((connector)->dev, NULL, \
+					     (connector)->encoder_ids[(__i)])) \
 
 #endif

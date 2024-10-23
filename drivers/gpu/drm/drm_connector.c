@@ -133,8 +133,9 @@ static void drm_connector_get_cmdline_mode(struct drm_connector *connector)
 		connector->force = mode->force;
 	}
 
-	DRM_DEBUG_KMS("cmdline mode for connector %s %dx%d@%dHz%s%s%s\n",
+	DRM_DEBUG_KMS("cmdline mode for connector %s %s %dx%d@%dHz%s%s%s\n",
 		      connector->name,
+		      mode->name,
 		      mode->xres, mode->yres,
 		      mode->refresh_specified ? mode->refresh : 60,
 		      mode->rb ? " reduced blanking" : "",
@@ -1305,11 +1306,11 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 
 	memset(&u_mode, 0, sizeof(struct drm_mode_modeinfo));
 
-	connector = drm_connector_lookup(dev, out_resp->connector_id);
+	connector = drm_connector_lookup(dev, file_priv, out_resp->connector_id);
 	if (!connector)
 		return -ENOENT;
 
-	for (i = 0; i < DRM_CONNECTOR_MAX_ENCODER; i++)
+	drm_connector_for_each_possible_encoder(connector, encoder, i)
 		if (connector->encoder_ids[i] != 0)
 			encoders_count++;
 

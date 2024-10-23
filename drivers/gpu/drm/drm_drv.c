@@ -33,6 +33,7 @@
 #include <linux/mount.h>
 #include <linux/slab.h>
 
+#include <drm/drm_client.h>
 #include <drm/drm_drv.h>
 #include <drm/drmP.h>
 
@@ -57,7 +58,8 @@ MODULE_PARM_DESC(debug, "Enable debug output, where each bit enables a debug cat
 "\t\tBit 2 (0x04) will enable KMS messages (modesetting code)\n"
 "\t\tBit 3 (0x08) will enable PRIME messages (prime code)\n"
 "\t\tBit 4 (0x10) will enable ATOMIC messages (atomic code)\n"
-"\t\tBit 5 (0x20) will enable VBL messages (vblank code)");
+"\t\tBit 5 (0x20) will enable VBL messages (vblank code)\n"
+"\t\tBit 7 (0x80) will enable LEASE messages (leasing code)");
 module_param_named(debug, drm_debug, int, 0600);
 
 static DEFINE_SPINLOCK(drm_minor_lock);
@@ -509,6 +511,8 @@ int drm_dev_init(struct drm_device *dev,
 	dev->driver = driver;
 
 	INIT_LIST_HEAD(&dev->filelist);
+	INIT_LIST_HEAD(&dev->filelist_internal);
+	INIT_LIST_HEAD(&dev->clientlist);
 	INIT_LIST_HEAD(&dev->ctxlist);
 	INIT_LIST_HEAD(&dev->vmalist);
 	INIT_LIST_HEAD(&dev->maplist);
@@ -518,6 +522,7 @@ int drm_dev_init(struct drm_device *dev,
 	spin_lock_init(&dev->event_lock);
 	mutex_init(&dev->struct_mutex);
 	mutex_init(&dev->filelist_mutex);
+	mutex_init(&dev->clientlist_mutex);
 	mutex_init(&dev->ctxlist_mutex);
 	mutex_init(&dev->master_mutex);
 
@@ -575,6 +580,7 @@ err_free:
 	put_device(dev->dev);
 	mutex_destroy(&dev->master_mutex);
 	mutex_destroy(&dev->ctxlist_mutex);
+	mutex_destroy(&dev->clientlist_mutex);
 	mutex_destroy(&dev->filelist_mutex);
 	mutex_destroy(&dev->struct_mutex);
 	return ret;
@@ -612,6 +618,7 @@ void drm_dev_fini(struct drm_device *dev)
 
 	mutex_destroy(&dev->master_mutex);
 	mutex_destroy(&dev->ctxlist_mutex);
+	mutex_destroy(&dev->clientlist_mutex);
 	mutex_destroy(&dev->filelist_mutex);
 	mutex_destroy(&dev->struct_mutex);
 	kfree(dev->unique);
@@ -832,6 +839,7 @@ err_minors:
 	drm_minor_unregister(dev, DRM_MINOR_CONTROL);
 out_unlock:
 	mutex_unlock(&drm_global_mutex);
+
 	return ret;
 }
 EXPORT_SYMBOL(drm_dev_register);
