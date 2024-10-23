@@ -36,7 +36,7 @@ struct fscrypt_name {
 	u32 hash;
 	u32 minor_hash;
 	struct fscrypt_str crypto_buf;
-	bool is_nokey_name;
+	bool is_ciphertext_name;
 };
 
 #define FSTR_INIT(n, l)		{ .name = n, .len = l }
@@ -45,7 +45,11 @@ struct fscrypt_name {
 #define fname_len(p)		((p)->disk_name.len)
 
 /* Maximum value for the third parameter of fscrypt_operations.set_context(). */
+#if defined(CONFIG_FSCRYPT_SDP) || defined(CONFIG_DDAR)
+#define FSCRYPT_SET_CONTEXT_MAX_SIZE	44
+#else
 #define FSCRYPT_SET_CONTEXT_MAX_SIZE	40
+#endif
 
 #ifdef CONFIG_FS_ENCRYPTION
 /*
@@ -62,6 +66,10 @@ struct fscrypt_operations {
 	int (*get_context)(struct inode *inode, void *ctx, size_t len);
 	int (*set_context)(struct inode *inode, const void *ctx, size_t len,
 			   void *fs_data);
+#if defined(CONFIG_FSCRYPT_SDP)
+	int (*get_knox_context)(struct inode *, const char *, void *, size_t);
+	int (*set_knox_context)(struct inode *, const char *, const void *, size_t, void *);
+#endif
 	const union fscrypt_context *(*get_dummy_context)(
 		struct super_block *sb);
 	bool (*empty_dir)(struct inode *inode);
@@ -107,15 +115,15 @@ fscrypt_get_dummy_context(struct super_block *sb)
 }
 
 /*
- * When d_splice_alias() moves a directory's no-key alias to its plaintext alias
- * as a result of the encryption key being added, DCACHE_NOKEY_NAME must be
- * cleared.  Note that we don't have to support arbitrary moves of this flag
- * because fscrypt doesn't allow no-key names to be the source or target of a
- * rename().
+ * When d_splice_alias() moves a directory's encrypted alias to its decrypted
+ * alias as a result of the encryption key being added, DCACHE_ENCRYPTED_NAME
+ * must be cleared.  Note that we don't have to support arbitrary moves of this
+ * flag because fscrypt doesn't allow encrypted aliases to be the source or
+ * target of a rename().
  */
 static inline void fscrypt_handle_d_move(struct dentry *dentry)
 {
-	dentry->d_flags &= ~DCACHE_NOKEY_NAME;
+	dentry->d_flags &= ~DCACHE_ENCRYPTED_NAME;
 }
 
 /* crypto.c */
@@ -187,6 +195,17 @@ int fscrypt_get_encryption_info(struct inode *inode);
 void fscrypt_put_encryption_info(struct inode *inode);
 void fscrypt_free_inode(struct inode *inode);
 int fscrypt_drop_inode(struct inode *inode);
+#ifdef CONFIG_FSCRYPT_SDP
+extern int fscrypt_get_encryption_key(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *key);
+extern int fscrypt_get_encryption_key_classified(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *key);
+extern int fscrypt_get_encryption_kek(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *kek);
+#endif
 
 /* fname.c */
 int fscrypt_setup_filename(struct inode *inode, const struct qstr *iname,
@@ -207,7 +226,6 @@ int fscrypt_fname_disk_to_usr(const struct inode *inode,
 bool fscrypt_match_name(const struct fscrypt_name *fname,
 			const u8 *de_name, u32 de_name_len);
 u64 fscrypt_fname_siphash(const struct inode *dir, const struct qstr *name);
-int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags);
 
 /* bio.c */
 void fscrypt_decrypt_bio(struct bio *bio);
@@ -416,6 +434,27 @@ static inline int fscrypt_drop_inode(struct inode *inode)
 	return 0;
 }
 
+static inline int fscrypt_get_encryption_key(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *key)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int fscrypt_get_encryption_key_classified(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *key)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int fscrypt_get_encryption_kek(
+						struct fscrypt_info *crypt_info,
+						struct fscrypt_key *kek)
+{
+	return -EOPNOTSUPP;
+}
+
  /* fname.c */
 static inline int fscrypt_setup_filename(struct inode *dir,
 					 const struct qstr *iname,
@@ -470,12 +509,6 @@ static inline u64 fscrypt_fname_siphash(const struct inode *dir,
 {
 	WARN_ON_ONCE(1);
 	return 0;
-}
-
-static inline int fscrypt_d_revalidate(struct dentry *dentry,
-				       unsigned int flags)
-{
-	return 1;
 }
 
 /* bio.c */
@@ -736,19 +769,18 @@ static inline int fscrypt_prepare_rename(struct inode *old_dir,
  * @fname: (output) the name to use to search the on-disk directory
  *
  * Prepare for ->lookup() in a directory which may be encrypted by determining
- * the name that will actually be used to search the directory on-disk.  If the
- * directory's encryption key is available, then the lookup is assumed to be by
- * plaintext name; otherwise, it is assumed to be by no-key name.
+ * the name that will actually be used to search the directory on-disk.  Lookups
+ * can be done with or without the directory's encryption key; without the key,
+ * filenames are presented in encrypted form.  Therefore, we'll try to set up
+ * the directory's encryption key, but even without it the lookup can continue.
  *
- * This will set DCACHE_NOKEY_NAME on the dentry if the lookup is by no-key
- * name.  In this case the filesystem must assign the dentry a dentry_operations
- * which contains fscrypt_d_revalidate (or contains a d_revalidate method that
- * calls fscrypt_d_revalidate), so that the dentry will be invalidated if the
- * directory's encryption key is later added.
+ * After calling this function, a filesystem should ensure that it's dentry
+ * operations contain fscrypt_d_revalidate if DCACHE_ENCRYPTED_NAME was set,
+ * so that the dentry can be invalidated if the key is later added.
  *
- * Return: 0 on success; -ENOENT if the directory's key is unavailable but the
- * filename isn't a valid no-key name, so a negative dentry should be created;
- * or another -errno code.
+ * Return: 0 on success; -ENOENT if key is unavailable but the filename isn't a
+ * correctly formed encoded ciphertext name, so a negative dentry should be
+ * created; or another -errno code.
  */
 static inline int fscrypt_prepare_lookup(struct inode *dir,
 					 struct dentry *dentry,

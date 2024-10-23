@@ -414,6 +414,9 @@ struct address_space {
 	struct list_head	private_list;	/* for use by the address_space */
 	void			*private_data;	/* ditto */
 	errseq_t		wb_err;
+#if defined(CONFIG_SDP) && !defined(CONFIG_FSCRYPT_SDP)
+	int userid;
+#endif
 } __attribute__((aligned(sizeof(long)))) __randomize_layout;
 	/*
 	 * On most architectures that alignment is already the case; but
@@ -899,7 +902,13 @@ struct file {
 #endif /* #ifdef CONFIG_EPOLL */
 	struct address_space	*f_mapping;
 	errseq_t		f_wb_err;
-	errseq_t		f_sb_err; /* for syncfs */
+
+#if defined(CONFIG_FIVE_PA_FEATURE) || defined(CONFIG_PROCA)
+	void *f_signature;
+#endif
+#ifdef CONFIG_FILE_TABLE_DEBUG
+	struct hlist_node f_hash;
+#endif /* #ifdef CONFIG_FILE_TABLE_DEBUG */
 } __randomize_layout
   __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
@@ -1314,7 +1323,7 @@ extern int send_sigurg(struct fown_struct *fown);
 /* These flags relate to encoding and casefolding */
 #define SB_ENC_STRICT_MODE_FL	(1 << 0)
 
-#define sb_has_strict_encoding(sb) \
+#define sb_has_enc_strict_mode(sb) \
 	(sb->s_encoding_flags & SB_ENC_STRICT_MODE_FL)
 
 /*
@@ -1383,10 +1392,7 @@ struct super_block {
 #ifdef CONFIG_FS_VERITY
 	const struct fsverity_operations *s_vop;
 #endif
-#ifdef CONFIG_UNICODE
-	struct unicode_map *s_encoding;
-	__u16 s_encoding_flags;
-#endif
+
 	struct hlist_bl_head	s_anon;		/* anonymous dentries for (nfs) exporting */
 #ifdef CONFIG_UNICODE
 	struct unicode_map *s_encoding;
@@ -1439,9 +1445,6 @@ struct super_block {
 
 	/* Being remounted read-only */
 	int s_readonly_remount;
-
-	/* per-sb errseq_t for reporting writeback errors via syncfs */
-	errseq_t s_wb_err;
 
 	/* AIO completions deferred from interrupt context */
 	struct workqueue_struct *s_dio_done_wq;
@@ -1668,9 +1671,6 @@ struct fiemap_extent_info {
 	struct fiemap_extent __user *fi_extents_start; /* Start of
 							fiemap_extent array */
 };
-
-int fiemap_prep(struct inode *inode, struct fiemap_extent_info *fieinfo,
-		u64 start, u64 *len, u32 supported_flags);
 int fiemap_fill_next_extent(struct fiemap_extent_info *info, u64 logical,
 			    u64 phys, u64 len, u32 flags);
 int fiemap_check_flags(struct fiemap_extent_info *fieinfo, u32 fs_flags);
@@ -2127,8 +2127,6 @@ static inline void file_accessed(struct file *file)
 		touch_atime(&file->f_path);
 }
 
-extern int file_modified(struct file *file);
-
 int sync_inode(struct inode *inode, struct writeback_control *wbc);
 int sync_inode_metadata(struct inode *inode, int wait);
 
@@ -2162,6 +2160,12 @@ struct file_system_type {
 
 #define MODULE_ALIAS_FS(NAME) MODULE_ALIAS("fs-" NAME)
 
+#ifdef CONFIG_PROC_PARSE_OPTION_ON_MOUNT
+extern struct dentry *mount_ns_option(struct file_system_type *fs_type,
+	int flags, void *data, void *ns, struct user_namespace *user_ns,
+	int (*fill_super)(struct super_block *, void *, int),
+	int (*parse_options)(char *, struct pid_namespace *));
+#endif
 extern struct dentry *mount_ns(struct file_system_type *fs_type,
 	int flags, void *data, void *ns, struct user_namespace *user_ns,
 	int (*fill_super)(struct super_block *, void *, int));
@@ -2246,6 +2250,7 @@ extern int thaw_super(struct super_block *super);
 extern bool our_mnt(struct vfsmount *mnt);
 extern __printf(2, 3)
 int super_setup_bdi_name(struct super_block *sb, char *fmt, ...);
+int sec_super_setup_bdi_name(struct super_block *sb, char *fmt, ...);
 extern int super_setup_bdi(struct super_block *sb);
 
 extern int current_umask(void);
@@ -2726,18 +2731,6 @@ static inline errseq_t filemap_sample_wb_err(struct address_space *mapping)
 	return errseq_sample(&mapping->wb_err);
 }
 
-/**
- * file_sample_sb_err - sample the current errseq_t to test for later errors
- * @mapping: mapping to be sampled
- *
- * Grab the most current superblock-level errseq_t value for the given
- * struct file.
- */
-static inline errseq_t file_sample_sb_err(struct file *file)
-{
-	return errseq_sample(&file->f_path.dentry->d_sb->s_wb_err);
-}
-
 extern int vfs_fsync_range(struct file *file, loff_t start, loff_t end,
 			   int datasync);
 extern int vfs_fsync(struct file *file, int datasync);
@@ -2762,16 +2755,10 @@ static inline ssize_t generic_write_sync(struct kiocb *iocb, ssize_t count)
 
 extern void emergency_sync(void);
 extern void emergency_remount(void);
-
+extern int intr_sync(int *);
 #ifdef CONFIG_BLOCK
-extern int bmap(struct inode *inode, sector_t *block);
-#else
-static inline int bmap(struct inode *inode,  sector_t *block)
-{
-	return -EINVAL;
-}
+extern sector_t bmap(struct inode *, sector_t);
 #endif
-
 extern int notify_change(struct dentry *, struct iattr *, struct inode **);
 extern int notify_change2(struct vfsmount *, struct dentry *, struct iattr *, struct inode **);
 extern int inode_permission(struct inode *, int);
@@ -3237,7 +3224,19 @@ extern int generic_file_fsync(struct file *, loff_t, loff_t, int);
 
 extern int generic_check_addressable(unsigned, u64);
 
-extern void generic_set_encrypted_ci_d_ops(struct dentry *dentry);
+#ifdef CONFIG_UNICODE
+extern int generic_ci_d_hash(const struct dentry *dentry, struct qstr *str);
+extern int generic_ci_d_compare(const struct dentry *dentry, unsigned int len,
+				const char *str, const struct qstr *name);
+extern bool needs_casefold(const struct inode *dir);
+#else
+static inline bool needs_casefold(const struct inode *dir)
+{
+	return 0;
+}
+#endif
+extern void generic_set_encrypted_ci_d_ops(struct inode *dir,
+					   struct dentry *dentry);
 
 #ifdef CONFIG_MIGRATION
 extern int buffer_migrate_page(struct address_space *,
@@ -3501,5 +3500,6 @@ static inline int inode_drain_writes(struct inode *inode)
 	inode_dio_wait(inode);
 	return filemap_write_and_wait(inode->i_mapping);
 }
+#define AID_USE_ROOT_RESERVED	KGIDT_INIT(5678)
 
 #endif /* _LINUX_FS_H */
