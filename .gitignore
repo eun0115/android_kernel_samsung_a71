@@ -130,3 +130,8 @@ kernel/configs/android-*.cfg
 #Ignoring Android.bp link file
 #
 Android.bp
+AnyKernel
+out
+clang
+a71.sh
+log.txt
