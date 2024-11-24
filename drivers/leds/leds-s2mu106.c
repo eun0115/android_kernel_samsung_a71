@@ -1046,8 +1046,8 @@ static ssize_t rear_flash_store(struct device *dev,
 		mode = S2MU106_FLED_MODE_OFF;
 	} else if (value == 1) {
 		mode = S2MU106_FLED_MODE_TORCH;
-		torch_current = g_fled_data->flashlight_current[0];
-	} else if (value == 100) {
+		torch_current = g_fled_data->flashlight_current[4];
+	} else if (value == 200) {
 		/* Factory Torch*/
 		pr_info("%s: factory torch current [%d]\n", __func__, g_fled_data->factory_current);
 		torch_current = g_fled_data->factory_current;
