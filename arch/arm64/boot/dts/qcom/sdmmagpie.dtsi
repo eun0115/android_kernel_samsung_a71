@@ -462,7 +462,7 @@
 	};
 
 	chosen {
-		bootargs = "rcupdate.rcu_normal_after_boot=1 cgroup_disable=pressure noirqdebug rcu_nocbs=0-7 kpti=off mitigations=off threadirqs quiet nodebugmon";
+		bootargs = "rcupdate.rcu_normal_after_boot=1 cgroup_disable=pressure mce=ignore_ce noirqdebug rcu_nocbs=0-7 kpti=off mitigations=off threadirqs quiet nodebugmon";
 	};
 
 	soc: soc { };
