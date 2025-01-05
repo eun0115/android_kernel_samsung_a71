@@ -962,7 +962,11 @@ static int s2mu106_led_dt_parse_pdata(struct device *dev,
 		pr_err("%s : could not find flashlight_current\n", __func__);
 
 		//default setting
-		pdata->flashlight_current[1] = 270;
+		pdata->flashlight_current[0] = 45;
+		pdata->flashlight_current[1] = 75;
+		pdata->flashlight_current[2] = 125;
+		pdata->flashlight_current[3] = 195;
+		pdata->flashlight_current[4] = 270;
 	}
 
 	pdata->chan_num = of_get_child_count(np);
@@ -1042,11 +1046,36 @@ static ssize_t rear_flash_store(struct device *dev,
 		mode = S2MU106_FLED_MODE_OFF;
 	} else if (value == 1) {
 		mode = S2MU106_FLED_MODE_TORCH;
-		torch_current = g_fled_data->flashlight_current[1];
+		torch_current = g_fled_data->flashlight_current[0];
+	} else if (value == 100) {
+		/* Factory Torch*/
+		pr_info("%s: factory torch current [%d]\n", __func__, g_fled_data->factory_current);
+		torch_current = g_fled_data->factory_current;
+		mode = S2MU106_FLED_MODE_TORCH;
+	} else if (value == 200) {
+		/* Factory Flash */
+		pr_info("%s: factory flash current [%d]\n", __func__, g_fled_data->factory_current);
+		flash_current = g_fled_data->factory_current;
+		mode = S2MU106_FLED_MODE_FLASH;
+	} else if (value <= 1010 && value >= 1001) {
+		mode = S2MU106_FLED_MODE_TORCH;
+		/* (value) 1001, 1002, 1004, 1006, 1009 */
+		if (value <= 1001)
+			torch_current = g_fled_data->flashlight_current[0];
+		else if (value <= 1002)
+			torch_current = g_fled_data->flashlight_current[1];
+		else if (value <= 1004)
+			torch_current = g_fled_data->flashlight_current[2];
+		else if (value <= 1006)
+			torch_current = g_fled_data->flashlight_current[3];
+		else if (value <= 1009)
+			torch_current = g_fled_data->flashlight_current[4];
+		else
+			torch_current = g_fled_data->torch_current;
+		g_fled_data->sysfs_input_data = 1;
 	} else if (value == 2) {
 		mode = S2MU106_FLED_MODE_FLASH;
-		flash_current = g_fled_data->flash_current;
-	} 
+	}
 
 	mutex_lock(&g_fled_data->lock);
 	if (g_fled_data->control_mode == CONTROL_I2C) {
