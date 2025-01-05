@@ -14120,8 +14120,6 @@ int hdd_init(void)
 		(void *)hdd_drv_ops_inactivity_handler, NULL,
 		QDF_TIMER_TYPE_SW);
 
-	hdd_trace_init();
-
 	hdd_register_debug_callback();
 
 err_out:
