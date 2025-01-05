@@ -134,4 +134,5 @@ AnyKernel
 out
 clang
 a71.sh
+a71-stock.sh
 log.txt
