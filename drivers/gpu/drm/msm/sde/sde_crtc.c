@@ -2147,9 +2147,11 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
 					mixer, &cstate->dim_layer[i]);
 
-		if (cstate->fod_dim_layer)
-			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
-					mixer, cstate->fod_dim_layer);
+		if (is_aosp) {
+			if (cstate->fod_dim_layer)
+				_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
+						mixer, cstate->fod_dim_layer);
+		}
 	}
 
 	_sde_crtc_program_lm_output_roi(crtc);
@@ -5364,13 +5366,16 @@ static void sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
 				dim_layer_stage);
 	}
 
-	if (!cstate->fod_dim_layer) {
-		// Samsung fingerprint HBM
-		if (vdd->finger_mask && vdd->br.finger_mask_bl_level != 0) {
-			vdd->br.finger_mask_bl_level = 0;
-			vdd->finger_mask = 0;
-			vdd->finger_mask_updated = true;
-			SDE_DEBUG("[FINGER_MASK] disabled mask");
+
+	if (is_aosp) {
+		if (!cstate->fod_dim_layer) {
+			// Samsung fingerprint HBM
+			if (vdd->finger_mask && vdd->br.finger_mask_bl_level != 0) {
+				vdd->br.finger_mask_bl_level = 0;
+				vdd->finger_mask = 0;
+				vdd->finger_mask_updated = true;
+				SDE_DEBUG("[FINGER_MASK] disabled mask");
+			}
 		}
 		return;
 	}
@@ -5379,12 +5384,14 @@ static void sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
 		if (pstates[plane_idx].stage >= dim_layer_stage)
 			pstates[plane_idx].stage++;
 
-	// Samsung fingerprint HBM
-	if (!vdd->finger_mask && vdd->br.finger_mask_bl_level == 0) {
-		vdd->br.finger_mask_bl_level = 331;
-		vdd->finger_mask = 1;
-		vdd->finger_mask_updated = true;
-		SDE_DEBUG("[FINGER_MASK] enabled mask");
+	if (is_aosp) {
+		// Samsung fingerprint HBM
+		if (!vdd->finger_mask && vdd->br.finger_mask_bl_level == 0) {
+			vdd->br.finger_mask_bl_level = 331;
+			vdd->finger_mask = 1;
+			vdd->finger_mask_updated = true;
+			SDE_DEBUG("[FINGER_MASK] enabled mask");
+		}
 	}
 }
 
@@ -5583,7 +5590,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
-	sde_crtc_fod_atomic_check(cstate, pstates, cnt);
+	if (is_aosp)
+		sde_crtc_fod_atomic_check(cstate, pstates, cnt);
 
 	/* assign mixer stages based on sorted zpos property */
 	if (cnt > 0)
