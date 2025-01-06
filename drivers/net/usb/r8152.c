@@ -7270,7 +7270,7 @@ static int rtl_ops_init(struct r8152 *tp)
 	return ret;
 }
 
-static u8 rtl_get_version(struct usb_interface *intf)
+static u8 __maybe_unused rtl_get_version(struct usb_interface *intf)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	u32 ocp_data = 0;

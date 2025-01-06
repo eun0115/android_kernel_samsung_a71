@@ -117,7 +117,7 @@ static unsigned int get_min_freq(struct cpufreq_policy *policy)
 	return max(freq, policy->cpuinfo.min_freq);
 }
 
-static unsigned int get_idle_freq(struct cpufreq_policy *policy)
+static unsigned int __maybe_unused get_idle_freq(struct cpufreq_policy *policy)
 {
 	unsigned int freq;
 
