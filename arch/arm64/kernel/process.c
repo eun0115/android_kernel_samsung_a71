@@ -229,7 +229,7 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 	}
 }
 
-static void show_extra_register_data(struct pt_regs *regs, int nbytes)
+static void __maybe_unused show_extra_register_data(struct pt_regs *regs, int nbytes)
 {
 	mm_segment_t fs;
 	unsigned int i;
