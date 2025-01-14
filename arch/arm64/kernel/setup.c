@@ -112,7 +112,7 @@ EXPORT_SYMBOL(logical_bootcpu_id);
 static unsigned int __init parse_logical_bootcpu(u64 dt_phys)
 {
 	void *fdt;
-	int size, parent, node, len;
+	int parent, node, len;
 	unsigned int logical_cpu_id = 0;
 	fdt64_t *prop;
 	u64 mpidr, hwid;
