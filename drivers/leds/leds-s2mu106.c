@@ -962,7 +962,7 @@ static int s2mu106_led_dt_parse_pdata(struct device *dev,
 		pr_err("%s : could not find flashlight_current\n", __func__);
 
 		//default setting
-		pdata->flashlight_current[1] = 270;
+		pdata->flashlight_current[4] = 270;
 	}
 
 	pdata->chan_num = of_get_child_count(np);
@@ -1042,7 +1042,7 @@ static ssize_t rear_flash_store(struct device *dev,
 		mode = S2MU106_FLED_MODE_OFF;
 	} else if (value == 1) {
 		mode = S2MU106_FLED_MODE_TORCH;
-		torch_current = g_fled_data->flashlight_current[1];
+		torch_current = g_fled_data->flashlight_current[4];
 	} else if (value == 2) {
 		mode = S2MU106_FLED_MODE_FLASH;
 		flash_current = g_fled_data->flash_current;
