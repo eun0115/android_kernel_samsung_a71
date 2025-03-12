@@ -5381,7 +5381,7 @@ static void sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
 
 	// Samsung fingerprint HBM
 	if (!vdd->finger_mask && vdd->br.finger_mask_bl_level == 0) {
-		vdd->br.finger_mask_bl_level = 331;
+		vdd->br.finger_mask_bl_level = 255;
 		vdd->finger_mask = 1;
 		vdd->finger_mask_updated = true;
 		SDE_DEBUG("[FINGER_MASK] enabled mask");
