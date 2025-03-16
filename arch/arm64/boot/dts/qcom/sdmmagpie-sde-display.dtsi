@@ -490,7 +490,6 @@
 			qcom,mdss-mdp-transfer-time-us = <13000>;
 			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
-			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <720 180 180 180 1440 180>;
 		};
 	};
@@ -514,7 +513,6 @@
 			qcom,mdss-dsi-panel-clockrate = <354585600>;
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
-			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <540 270 270 270 1080 270>;
 		};
 	};
@@ -563,7 +561,6 @@
 				0b 09 03 04 00];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
-			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <720 160 160 160 1440 160>;
 		};
 	};
@@ -639,7 +636,6 @@
 						<2 2 1>;
 			qcom,default-topology-index = <1>;
 			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
-			qcom,partial-update-enabled = "single_roi";
 		};
 
 		timing@1{
@@ -649,7 +645,6 @@
 						<2 2 1>;
 			qcom,default-topology-index = <1>;
 			qcom,panel-roi-alignment = <540 40 540 40 540 40>;
-			qcom,partial-update-enabled = "single_roi";
 		};
 
 		timing@2{
@@ -659,7 +654,6 @@
 						<2 2 1>;
 			qcom,default-topology-index = <1>;
 			qcom,panel-roi-alignment = <360 40 360 40 360 40>;
-			qcom,partial-update-enabled = "single_roi";
 		};
 	};
 };
