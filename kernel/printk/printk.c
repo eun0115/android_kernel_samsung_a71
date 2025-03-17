@@ -863,7 +863,6 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	if (!copy_from_iter_full(buf, len, from))
 		return -EFAULT;
 
-	/*
 	 * Extract and skip the syslog prefix <[0-9]*>. Coming from userspace
 	 * the decimal value represents 32bit, the lower 3 bit are the log
 	 * level, the rest are the log facility.
