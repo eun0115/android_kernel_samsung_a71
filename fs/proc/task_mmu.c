@@ -422,13 +422,14 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 			goto bypass_orig_flow;
 		}
 #endif
+		struct dentry *dentry;
 		dev = inode->i_sb->s_dev;
 		ino = inode->i_ino;
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 bypass_orig_flow:
 #endif
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
-		struct dentry *dentry = file->f_path.dentry;
+		dentry = file->f_path.dentry;
 		if (dentry) {
 			const char *path = (const char *)dentry->d_name.name;
 			if (strstr(path, "lineage")) {
