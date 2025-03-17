@@ -1908,7 +1908,7 @@ static void adreno_qdss_gfx_dbg_regwrite(struct kgsl_device *device,
 	__raw_writel(value, adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
 }
 
-static void adreno_gx_regread(struct kgsl_device *device,
+static void __maybe_unused adreno_gx_regread(struct kgsl_device *device,
 	unsigned int offsetwords, unsigned int *value)
 {
 	if (adreno_is_qdss_dbg_register(device, offsetwords))
@@ -1917,7 +1917,7 @@ static void adreno_gx_regread(struct kgsl_device *device,
 		kgsl_regread(device, offsetwords, value);
 }
 
-static void adreno_gx_regwrite(struct kgsl_device *device,
+static void __maybe_unused adreno_gx_regwrite(struct kgsl_device *device,
 	unsigned int offsetwords, unsigned int value)
 {
 	if (adreno_is_qdss_dbg_register(device, offsetwords))
