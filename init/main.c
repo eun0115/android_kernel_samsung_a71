@@ -1101,8 +1101,10 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);
 #ifdef CONFIG_SEC_BSP
+#ifdef CONFIG_SEC_BOOTSTAT
 	else if (initcall_sec_debug)
 		ret = do_one_initcall_sec_debug(fn);
+#endif
 #endif
 	else
 		ret = fn();
