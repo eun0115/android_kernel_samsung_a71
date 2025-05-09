@@ -746,7 +746,6 @@ static inline int security_validtrans_handle_fail(struct selinux_state *state,
 					   struct context *tcontext,
 					   u16 tclass)
 {
-	struct policydb *p = &state->ss->policydb;
 #ifdef CONFIG_AUDIT
 	char *o = NULL, *n = NULL, *t = NULL;
 	u32 olen, nlen, tlen;
@@ -1643,7 +1642,6 @@ static inline int compute_sid_handle_invalid_context(
 	u16 tclass,
 	struct context *newcontext)
 {
-	struct policydb *policydb = &state->ss->policydb;
 #ifdef CONFIG_AUDIT
 	char *s = NULL, *t = NULL, *n = NULL;
 	u32 slen, tlen, nlen;
@@ -1967,7 +1965,6 @@ static inline int convert_context_handle_invalid_context(
 	struct selinux_state *state,
 	struct context *context)
 {
-	struct policydb *policydb = &state->ss->policydb;
 #ifdef CONFIG_AUDIT
 	char *s;
 	u32 len;
