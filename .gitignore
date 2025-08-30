@@ -133,4 +133,5 @@ AnyKernel
 out
 clang
 sm7150.sh
+a71.sh
 log.txt
